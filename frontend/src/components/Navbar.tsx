@@ -121,10 +121,16 @@ export function Navbar({
                       Marketplace
                     </NavLink>
                     <NavLink
-                      active={currentPage === "profile"}
-                      onClick={() => onNavigate("profile")}
+                      active={currentPage === "semanticSearch"}
+                      onClick={() => onNavigate("semanticSearch")}
                     >
-                      Mi Perfil
+                      Búsqueda IA
+                    </NavLink>
+                    <NavLink
+                      active={currentPage === "recommendations"}
+                      onClick={() => onNavigate("recommendations")}
+                    >
+                      Para Ti
                     </NavLink>
                     <div className="flex items-center gap-2 ml-4">
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
@@ -326,6 +332,27 @@ export function Navbar({
                       Marketplace
                     </Button>
                     <Button
+                      variant={currentPage === "semanticSearch" ? "secondary" : "ghost"}
+                      onClick={() => {
+                        onNavigate("semanticSearch");
+                        setMobileMenuOpen(false);
+                      }}
+                      className="justify-start"
+                    >
+                      Búsqueda IA
+                    </Button>
+                    <Button
+                      variant={currentPage === "recommendations" ? "secondary" : "ghost"}
+                      onClick={() => {
+                        onNavigate("recommendations");
+                        setMobileMenuOpen(false);
+                      }}
+                      className="justify-start"
+                    >
+                      Para Ti
+                    </Button>
+                    <div className="border-t border-border my-2" />
+                    <Button
                       variant={currentPage === "profile" ? "secondary" : "ghost"}
                       onClick={() => {
                         onNavigate("profile");
@@ -333,6 +360,7 @@ export function Navbar({
                       }}
                       className="justify-start"
                     >
+                      <User className="w-4 h-4 mr-2" />
                       Mi Perfil
                     </Button>
                     <Button

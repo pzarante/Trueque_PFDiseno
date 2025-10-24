@@ -10,13 +10,15 @@ import { NotificationPanel } from "./components/NotificationPanel";
 import { Chat } from "./components/Chat";
 import { PublishProduct } from "./components/PublishProduct";
 import { AdminDashboard } from "./components/AdminDashboard";
+import { SemanticSearch } from "./components/SemanticSearch";
+import { Recommendations } from "./components/Recommendations";
 import { Product } from "./components/ProductCard";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner@2.0.3";
 import { ThemeColor } from "./components/ThemeColorPicker";
 import { ThemeColorProvider } from "./hooks/useThemeColor";
 
-type Page = "home" | "login" | "register" | "marketplace" | "profile" | "admin" | "userProfile";
+type Page = "home" | "login" | "register" | "marketplace" | "profile" | "admin" | "userProfile" | "semanticSearch" | "recommendations";
 
 export interface User {
   id: string;
@@ -319,8 +321,8 @@ export default function App() {
   };
 
   const handleNavigate = (page: string) => {
-    // Bloquear marketplace y profile para admins
-    if (user && user.role === "admin" && (page === "marketplace" || page === "profile")) {
+    // Bloquear marketplace, profile, búsqueda y recomendaciones para admins
+    if (user && user.role === "admin" && (page === "marketplace" || page === "profile" || page === "semanticSearch" || page === "recommendations")) {
       toast.error("Acceso denegado", {
         description: "Los administradores no pueden acceder a esta sección",
       });
@@ -338,6 +340,13 @@ export default function App() {
       setCurrentPage("login");
       toast.error("Acceso denegado", {
         description: "Debes iniciar sesión para ver tu perfil",
+      });
+      return;
+    }
+    if ((page === "semanticSearch" || page === "recommendations") && !user) {
+      setCurrentPage("login");
+      toast.error("Acceso denegado", {
+        description: "Debes iniciar sesión para acceder a esta función",
       });
       return;
     }
@@ -893,6 +902,23 @@ export default function App() {
             onToggleTheme={toggleTheme}
             themeColor={themeColor}
             onColorChange={handleColorChange}
+          />
+        )}
+        {currentPage === "semanticSearch" && (
+          <SemanticSearch
+            publishedProducts={publishedProducts}
+            onViewProduct={handleViewProduct}
+            currentUserId={user?.id}
+            onToggleFavorite={handleToggleFavorite}
+          />
+        )}
+        {currentPage === "recommendations" && (
+          <Recommendations
+            publishedProducts={publishedProducts}
+            onViewProduct={handleViewProduct}
+            currentUserId={user?.id}
+            currentUser={user}
+            onToggleFavorite={handleToggleFavorite}
           />
         )}
 
