@@ -6,31 +6,23 @@ import spacy
 
 process_offer = Blueprint('process_offer', __name__)
 
-# Cargar stopwords en español
-STOPWORDS_ES = stopwords("es")
-
 spcy = spacy.load("es_core_news_sm")
 
 def extract_keywords(text):
-    doc = spcy(text)
-    return [token.text for token in doc if token.pos_ in ["NOUN", "PROPN", "ADJ"]]
+    doc = spcy(text.lower())
+    
+    keywords = []
+    for token in doc:
+        # Filtrar: palabras no stop, longitud mínima, y partes del speech relevantes
+        if (not token.is_stop and 
+            len(token.text) > 2 and 
+            token.pos_ in ["NOUN", "PROPN", "ADJ"]):
+            
+            # Usar el lema (forma base) en lugar del texto
+            keywords.append(token.text)
+    
+    return list(set(keywords))  # Eliminar duplicados
 
-def clean_text(text):
-    # Convertir a minúsculas
-    text = text.lower()
-    
-    # Eliminar puntuación y números
-    text = re.sub(rf"[{re.escape(string.punctuation)}]", " ", text)
-    text = re.sub(r"\d+", "", text)
-    
-    # Tokenizar por espacios
-    tokens = text.split()
-    
-    # Eliminar stopwords y palabras vacías
-    tokens = [word for word in tokens if word.isalpha() and word not in STOPWORDS_ES]
-    
-    # Volver a unir el texto limpio
-    return " ".join(tokens)
 
 @process_offer.route('/nlp/create_offer', methods=['POST'])
 def create_offer():
@@ -39,13 +31,13 @@ def create_offer():
     title = data.get('title', '')
     category = data.get('category', '')
     
-    clean_title = clean_text(title)
-    clean_category = clean_text(category)
+    #clean_title = clean_text(title)
+    #clean_category = clean_text(category)
     keywords = extract_keywords(title)
+
     response = {
         "id": data.get('id', None),
-        "title": clean_title,
-        "category": clean_category,
+        "category": category.lower(),
         "keywords": keywords
     }
     return jsonify(response)
