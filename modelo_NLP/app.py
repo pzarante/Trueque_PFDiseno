@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 
 from app.modules.process_offer import process_offer
 

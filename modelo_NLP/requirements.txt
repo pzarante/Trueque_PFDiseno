@@ -1,1 +1,7 @@
-Flask==2.3.3
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2+cpu     # obligatorio
+
+flask==2.3.3
+spacy==3.7.2
+sentence-transformers==2.6.1
+pysentimiento==0.7.3
