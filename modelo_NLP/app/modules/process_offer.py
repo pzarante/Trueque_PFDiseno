@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from app.chroma_BD.chroma import get_chroma_collection
 from app.services.nlp_processor import extract_keywords, clean_text, analyze_sentiment, text_to_embeddings
 
 process_offer = Blueprint('process_offer', __name__)
@@ -9,6 +10,7 @@ def create_offer():
 
     data = request.get_json()
     
+    id = data.get('id', None)
     title = data.get('title', '')
     comment = data.get('comment','')
     category = data.get('category', '')
@@ -24,14 +26,28 @@ def create_offer():
     emb_title = text_to_embeddings(clear_title)
     emb_comment = text_to_embeddings(clear_comment)
 
+    collection = get_chroma_collection()
     
+    collection.add(
+    ids=[f"{id}_title", f"{id}_comment"],
+    embeddings=[emb_title, emb_comment],  
+    documents=[clear_title, clear_comment],
+    metadatas=[
+        {"offer_id": id, "type": "title", "category": category.lower()},
+        {"offer_id": id, "type": "comment", "category": category.lower()},
+    ]
+    )
+    return jsonify({"message": "Documents added successfully", "ids": id}), 200
 
-    analitycs = {
-        "id": data.get('id', None),
-        "keywords": keywords,
-        "sentiment": sentiment,
-        "emb_title": emb_title.tolist()
+
+
+
+   # analitycs = {
+      #  "id": data.get('id', None),
+       # "keywords": keywords,
+       # "sentiment": sentiment,
+       # "emb_title": emb_title.tolist()
         
         #"embedding": vector.tolist()
-    }
-    return jsonify(analitycs)
+    #}
+    #return jsonify(analitycs)
