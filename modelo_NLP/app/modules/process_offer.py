@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
 import spacy
 import re
-from app.pre_trained_model import text_to_embeddings, texts_to_embeddings
-
+from app.embedding_model import text_to_embeddings
+from app.sentimental_model import analyze_sentiment
 
 process_offer = Blueprint('process_offer', __name__)
 
@@ -53,12 +53,12 @@ def create_offer():
     clear_title = clean_text(title)
     clear_comment = clean_text(comment)
     vector = text_to_embeddings(clear_title)
+
+    sentiment = analyze_sentiment(clear_comment)
     analitycs = {
         "id": data.get('id', None),
-        "title": clear_title,
-        "category": category.lower(),
-        "comment": clear_comment,
         "keywords": keywords,
+        "sentiment": sentiment
         
         #"embedding": vector.tolist()
     }
