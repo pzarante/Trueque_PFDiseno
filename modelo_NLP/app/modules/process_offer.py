@@ -1,12 +1,27 @@
 from flask import Blueprint, request, jsonify
-import re
-import string
-from stopwordsiso import stopwords
 import spacy
+import re
+from app.pre_trained_model import text_to_embeddings, texts_to_embeddings
+
 
 process_offer = Blueprint('process_offer', __name__)
 
 spcy = spacy.load("es_core_news_sm")
+
+
+def clean_text(text):
+    if not isinstance(text, str):
+        return ""
+
+    text = text.lower()
+    
+    text = re.sub(r'[^\w\s.,\-¿?¡!áéíóúñü]', ' ', text)
+    
+    # 3. Normalizar espacios
+    text = re.sub(r'\s+', ' ', text)
+
+    
+    return text.strip()
 
 def extract_keywords(text):
     doc = spcy(text.lower())
@@ -29,15 +44,22 @@ def create_offer():
     data = request.get_json()
     
     title = data.get('title', '')
+    comment = data.get('comment','')
     category = data.get('category', '')
     
     #clean_title = clean_text(title)
     #clean_category = clean_text(category)
     keywords = extract_keywords(title)
-
-    response = {
+    clear_title = clean_text(title)
+    clear_comment = clean_text(comment)
+    vector = text_to_embeddings(clear_title)
+    analitycs = {
         "id": data.get('id', None),
+        "title": clear_title,
         "category": category.lower(),
-        "keywords": keywords
+        "comment": clear_comment,
+        "keywords": keywords,
+        
+        #"embedding": vector.tolist()
     }
-    return jsonify(response)
+    return jsonify(analitycs)
