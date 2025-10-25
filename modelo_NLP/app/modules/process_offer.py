@@ -31,7 +31,6 @@ def create_offer():
     collection.add(
     ids=[f"{id}_title", f"{id}_comment"],
     embeddings=[emb_title, emb_comment],  
-    documents=[clear_title, clear_comment],
     metadatas=[
         {"offer_id": id, "type": "title", "category": category.lower()},
         {"offer_id": id, "type": "comment", "category": category.lower()},
