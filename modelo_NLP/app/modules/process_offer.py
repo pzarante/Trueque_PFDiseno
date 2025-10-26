@@ -1,5 +1,4 @@
-from flask import Blueprint, request, jsonify
-from app.chroma_BD.chroma import get_chroma_collection
+from flask import Blueprint, request, jsonify, current_app
 from app.services.nlp_processor import extract_keywords, clean_text, analyze_sentiment, text_to_embeddings
 from app.postgres_DB.postgres import insert_offer_analysis, insert_posting_history
 
@@ -30,10 +29,10 @@ def create_offer():
     emb_comment = text_to_embeddings(clear_comment)
 
     # --- Guardar en ChromaDB ---
-    collection = get_chroma_collection()
+    
     chroma_ids = [f"{offer_id}_title", f"{offer_id}_comment"]
 
-    collection.add(
+    current_app.collection.add(
     ids=chroma_ids,
     embeddings=[emb_title, emb_comment],  
     metadatas=[
@@ -41,7 +40,6 @@ def create_offer():
         {"offer_id": offer_id, "type": "comment", "category": category.lower()},
     ]
     )
-
     # --- Guardar análisis NLP en Supabase/PostgreSQL ---
     insert_offer_analysis(offer_id, keywords, sentiment)
     insert_posting_history(offer_id, user_id)
