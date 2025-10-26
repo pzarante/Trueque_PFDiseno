@@ -21,8 +21,8 @@ model Usuario {
   fechaCreacion     DateTime  @default(now())
   fechaActualizacion DateTime @updatedAt
 
-  productosOfrecidos Producto[]
-  productosBuscados  Producto[]
+  productosOfrecidos Producto[] @relation("ProductosOfrecidos")
+  productosBuscados  Producto[] @relation("ProductosBuscados")
 
   intercambiosComoSolicitante Intercambio[] @relation("SolicitanteIntercambio")
   intercambiosComoOferente    Intercambio[] @relation("OferenteIntercambio")
