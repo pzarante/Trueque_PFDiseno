@@ -11,11 +11,12 @@ def create_offer():
 
     data = request.get_json()
 
-    id = data.get('id', None)
+    offer_id = data.get('offer_id', None)
+    user_id = data.get('user_id', '')
     title = data.get('title', '')
     comment = data.get('comment','')
     category = data.get('category', '')
-    user = data.get('user', '')
+    
 
 
     keywords = extract_keywords(title)
@@ -30,32 +31,20 @@ def create_offer():
 
     # --- Guardar en ChromaDB ---
     collection = get_chroma_collection()
-    chroma_ids = [f"{id}_title", f"{id}_comment"]
+    chroma_ids = [f"{offer_id}_title", f"{offer_id}_comment"]
 
     collection.add(
     ids=chroma_ids,
     embeddings=[emb_title, emb_comment],  
     metadatas=[
-        {"offer_id": id, "type": "title", "category": category.lower()},
-        {"offer_id": id, "type": "comment", "category": category.lower()},
+        {"offer_id": offer_id, "type": "title", "category": category.lower()},
+        {"offer_id": offer_id, "type": "comment", "category": category.lower()},
     ]
     )
 
     # --- Guardar análisis NLP en Supabase/PostgreSQL ---
-    insert_offer_analysis(id, keywords, sentiment)
-    insert_posting_history(id, user)
+    insert_offer_analysis(offer_id, keywords, sentiment)
+    insert_posting_history(offer_id, user_id)
 
-    return jsonify({"message": "Documents added successfully", "ids": id}), 200
+    return jsonify({"message": "Documents added successfully"}), 200
 
-
-
-
-   # analitycs = {
-      #  "id": data.get('id', None),
-       # "keywords": keywords,
-       # "sentiment": sentiment,
-       # "emb_title": emb_title.tolist()
-
-        #"embedding": vector.tolist()
-    #}
-    #return jsonify(analitycs)
