@@ -11,7 +11,7 @@ def get_supabase_client() -> Client:
         raise ValueError("Variables SUPABASE_URL o SUPABASE_KEY no definidas en .env")
     return create_client(url, key)
 
-def insert_offer_analysis(offer_id, keywords, sentiment):
+def insert_offer_analysis(offer_id, keywords, sentiment, needs_title_reindex, needs_comment_reindex):
     supabase = get_supabase_client()
     data = {
         "offer_id": offer_id,
@@ -20,6 +20,8 @@ def insert_offer_analysis(offer_id, keywords, sentiment):
         "confidence": sentiment["confidence"],
         "polarity": sentiment["polarity"],
         "subjectivity": sentiment["subjectivity"],
+        "needs_title_reindex": needs_title_reindex,
+        "needs_comment_reindex": needs_comment_reindex
     }
     supabase.table("offer_nlp_analysis").insert(data).execute()
     return data

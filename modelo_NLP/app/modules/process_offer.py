@@ -41,8 +41,9 @@ def create_offer():
     ]
     )
     # --- Guardar análisis NLP en Supabase/PostgreSQL ---
-    insert_offer_analysis(offer_id, keywords, sentiment)
+    insert_offer_analysis(offer_id, keywords, sentiment,False,False)
     insert_posting_history(offer_id, user_id)
+    
 
     return jsonify({"message": "Documents added successfully"}), 200
 
