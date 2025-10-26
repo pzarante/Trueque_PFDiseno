@@ -117,3 +117,60 @@ export const verifyEmail = async (req, res) => {
     res.status(400).json({ error: 'Token inválido o expirado' });
   }
 };
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await prisma.usuario.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      return res.json({ message: 'Si el email existe, se enviará un enlace de recuperación' });
+    }
+
+    const resetToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    await prisma.usuario.update({
+      where: { id: user.id },
+      data: { tokenReset: resetToken }
+    });
+
+    res.json({ message: 'Si el email existe, se envió un enlace de recuperación' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al procesar recuperación de contraseña' });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
+
+    const user = await prisma.usuario.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user || user.tokenReset !== token) {
+      return res.status(400).json({ error: 'Token inválido o expirado' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await prisma.usuario.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        tokenReset: null
+      }
+    });
+
+    res.json({ message: 'Contraseña actualizada exitosamente' });
+  } catch (error) {
+    res.status(400).json({ error: 'Token inválido o expirado' });
+  }
+};
