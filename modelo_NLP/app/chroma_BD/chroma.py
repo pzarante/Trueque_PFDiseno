@@ -1,4 +1,4 @@
-from flask import current_app, g
+from flask import g
 import chromadb
 from chromadb.api import ClientAPI
 from chromadb.api.models.Collection import Collection

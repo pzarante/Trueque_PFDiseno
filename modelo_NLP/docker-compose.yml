@@ -1,5 +1,5 @@
 services:
-  flask-app:
+  modelo_nlp:
     build: .
     ports:
       - "5000:5000"
