@@ -37,3 +37,49 @@ export const register = async (req, res) => {
     res.status(500).json({ error: 'Error al registrar usuario' });
   }
 };
+
+export const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await prisma.usuario.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+
+    if (!user.emailVerificado) {
+      return res.status(401).json({ error: 'Debes verificar tu email primero' });
+    }
+
+    if (!user.activo) {
+      return res.status(401).json({ error: 'Tu cuenta está desactivada' });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        nombre: user.nombre,
+        email: user.email,
+        ciudad: user.ciudad
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al iniciar sesión' });
+  }
+};
