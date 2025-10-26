@@ -17,6 +17,7 @@ import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner@2.0.3";
 import { ThemeColor } from "./components/ThemeColorPicker";
 import { ThemeColorProvider } from "./hooks/useThemeColor";
+import { apiClient } from "./config/api";
 
 type Page = "home" | "login" | "register" | "marketplace" | "profile" | "admin" | "userProfile" | "semanticSearch" | "recommendations";
 
@@ -110,6 +111,7 @@ const STORAGE_KEYS = {
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("home");
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [publishedProducts, setPublishedProducts] = useState<Product[]>([]);
@@ -233,9 +235,8 @@ export default function App() {
     }
   };
 
-  const handleLogin = (email: string, password: string, isAdmin: boolean) => {
+  const handleLogin = async (email: string, password: string, isAdmin: boolean) => {
     if (isAdmin) {
-      // Validar credenciales de administrador
       if (email === "admin@swaply.com" && password === "admin123") {
         const adminUser: User = {
           id: "admin",
@@ -259,61 +260,57 @@ export default function App() {
         });
       }
     } else {
-      // Find existing user or create demo user
-      let existingUser = allUsers.find(u => u.email === email);
-      
-      if (!existingUser) {
-        existingUser = {
-          id: Date.now().toString(),
-          name: "Usuario Demo",
-          email: email,
+      try {
+        const response = await apiClient.post('/auth/login', { email, password });
+        
+        setToken(response.token);
+        localStorage.setItem('token', response.token);
+        
+        const userData: User = {
+          id: response.user.id,
+          name: response.user.nombre,
+          email: response.user.email,
           role: "user",
-          city: "Bogotá",
+          city: response.user.ciudad,
           joinedDate: new Date().toISOString(),
           favorites: [],
           activities: [],
           isActive: true,
         };
-        setAllUsers([...allUsers, existingUser]);
-      }
-      
-      if (existingUser.isActive === false) {
-        toast.error("Cuenta desactivada", {
-          description: "Esta cuenta ha sido desactivada. Contacta al administrador.",
+        
+        setUser(userData);
+        setCurrentPage("marketplace");
+        toast.success("¡Bienvenido!", {
+          description: "Has iniciado sesión exitosamente",
         });
-        return;
+      } catch (error: any) {
+        toast.error("Error al iniciar sesión", {
+          description: error.message,
+        });
       }
+    }
+  };
+
+  const handleRegister = async (name: string, email: string, password: string, city: string) => {
+    try {
+      await apiClient.post('/auth/register', { name, email, password, city });
       
-      setUser(existingUser);
-      setCurrentPage("marketplace");
-      toast.success("¡Bienvenido de vuelta!", {
-        description: "Has iniciado sesión exitosamente",
+      toast.success("¡Cuenta creada!", {
+        description: "Verifica tu email para activar tu cuenta",
+      });
+      
+      setCurrentPage("login");
+    } catch (error: any) {
+      toast.error("Error al registrar", {
+        description: error.message,
       });
     }
   };
 
-  const handleRegister = (name: string, email: string, password: string, city: string) => {
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: name,
-      email: email,
-      role: "user",
-      city: city,
-      joinedDate: new Date().toISOString(),
-      favorites: [],
-      activities: [],
-      isActive: true,
-    };
-    setUser(newUser);
-    setAllUsers([...allUsers, newUser]);
-    setCurrentPage("marketplace");
-    toast.success("¡Cuenta creada!", {
-      description: "Bienvenido a Swaply. Comienza a explorar productos.",
-    });
-  };
-
   const handleLogout = () => {
     setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
     setCurrentPage("home");
     toast.info("Sesión cerrada", {
       description: "Has cerrado sesión exitosamente",
