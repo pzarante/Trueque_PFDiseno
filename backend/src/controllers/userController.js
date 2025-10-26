@@ -55,3 +55,36 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar perfil' });
   }
 };
+
+export const getReputation = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const intercambios = await prisma.intercambio.findMany({
+      where: {
+        OR: [
+          { solicitanteId: userId },
+          { oferenteId: userId }
+        ],
+        estado: 'completado'
+      }
+    });
+
+    const truequesCompletados = intercambios.length;
+
+    const calificaciones = await prisma.calificacion.findMany({
+      where: { calificadoId: userId }
+    });
+
+    const promedio = calificaciones.length > 0
+      ? calificaciones.reduce((sum, cal) => sum + cal.puntaje, 0) / calificaciones.length
+      : 0;
+
+    res.json({
+      promedio: Number(promedio.toFixed(2)),
+      truequesCompletados
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener reputación' });
+  }
+};
