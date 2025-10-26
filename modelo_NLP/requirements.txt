@@ -7,3 +7,5 @@ sentence-transformers==2.6.1
 pysentimiento==0.7.3
 chromadb
 python-dotenv
+psycopg2-binary==2.9.9     # cliente PostgreSQL
+supabase==2.4.3     
