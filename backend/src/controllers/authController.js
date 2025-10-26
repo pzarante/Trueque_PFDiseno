@@ -83,3 +83,37 @@ export const login = async (req, res) => {
     res.status(500).json({ error: 'Error al iniciar sesión' });
   }
 };
+
+export const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const email = decoded.email;
+
+    const user = await prisma.usuario.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    if (user.emailVerificado) {
+      return res.json({ message: 'Email ya verificado' });
+    }
+
+    await prisma.usuario.update({
+      where: { id: user.id },
+      data: {
+        emailVerificado: true,
+        activo: true,
+        tokenVerificacion: null
+      }
+    });
+
+    res.json({ message: 'Email verificado exitosamente' });
+  } catch (error) {
+    res.status(400).json({ error: 'Token inválido o expirado' });
+  }
+};
