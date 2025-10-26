@@ -88,3 +88,18 @@ export const getReputation = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener reputación' });
   }
 };
+
+export const deactivateAccount = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    await prisma.usuario.update({
+      where: { id: userId },
+      data: { activo: false }
+    });
+
+    res.json({ message: 'Cuenta desactivada exitosamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al desactivar cuenta' });
+  }
+};
