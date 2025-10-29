@@ -7,7 +7,7 @@ semantic_search = Blueprint('semantic_search', __name__)
 @semantic_search.route('/search', methods=['GET'])
 def search_offers():
     query_text = request.args.get("query", "").strip()
-    n = int(request.args.get("n", 5))
+    n = int(request.args.get("n", 20))
     category = request.args.get("category", "").lower()
 
     if not query_text:
@@ -24,5 +24,19 @@ def search_offers():
         query_embeddings=query_embedding,
         n_results=n
     )
-    
-    return jsonify({"results":results})
+
+    offers = []
+    for i, meta in enumerate(results["metadatas"][0]):
+        offer_id = meta["offer_id"]
+        tipo = meta.get("type", "")
+        distance = results["distances"][0][i]
+        score = max(0.0, 1.0 - distance / 2.0)  # similitud coseno aproximada
+
+        offers.append({
+            "offer_id": offer_id,
+            "type": tipo,
+            "category": meta.get("category", ""),
+            "score": score
+        })
+
+    return jsonify({"results":offers})
