@@ -1,6 +1,6 @@
 from flask import Blueprint, request,jsonify, current_app
 import numpy as np
-from app.postgres_DB.postgres import get_user_publication_history, get_user_consultation_history
+from app.postgres_DB.postgres import get_user_publication_history, get_user_consultation_history, get_multiple_offers_keywords
 
 recommendations = Blueprint('recommendations', __name__)
 
@@ -59,20 +59,27 @@ def recommendation():
     )
     
     # PASO 3: Formatear respuesta
-    # PASO 3: Obtener solo los IDs de ofertas recomendadas (excluyendo las del historial)
     recommended_offer_ids = []
+
     for chroma_id in results["ids"][0]:
         offer_id = chroma_id.replace("_title", "").replace("_comment", "")
         
-        # Excluir ofertas que ya están en el historial del usuario
-        if offer_id not in offer_ids:
+        # Excluir ofertas que ya están en el historial del usuario 
+        if offer_id not in str(offer_ids):
             recommended_offer_ids.append(offer_id)
+      
 
-    # Eliminar duplicados (por si hay título y comentario de misma oferta)
-    recommended_offer_ids = list(set(recommended_offer_ids))
+    # Después de obtener recommended_offer_ids
+    keywords_dict = get_multiple_offers_keywords(recommended_offer_ids)
+
+    offers_with_keywords = []
+    for offer_id in recommended_offer_ids:  # Este orden ahora es por similitud
+        offers_with_keywords.append({
+            "offer_id": offer_id,
+            "keywords": keywords_dict.get(offer_id, [])
+        })
 
     return jsonify({
-        "recommended_offers": recommended_offer_ids
+        "recommended_offers": offers_with_keywords
     })
-
 

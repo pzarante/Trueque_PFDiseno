@@ -58,3 +58,23 @@ def get_user_consultation_history(user_id):
         .execute()
     
     return [item["id_offer"] for item in response.data]
+
+def get_multiple_offers_keywords(offer_ids):
+    """Obtiene keywords para múltiples ofertas en una sola consulta"""
+    try:
+        supabase = get_supabase_client()
+        
+        # CONVERTIR los offer_ids de string a int
+        offer_ids_int = [int(offer_id) for offer_id in offer_ids]
+
+        response = supabase.table("offer_nlp_analysis")\
+            .select("offer_id, keywords")\
+            .in_("offer_id", offer_ids_int)\
+            .execute()
+        
+        # Convertir a diccionario para fácil acceso
+        return {str(item["offer_id"]): item["keywords"] for item in response.data}
+    
+    except Exception as e:
+        print(f"Error en get_multiple_offers_keywords: {e}")  # DEBUG
+        return {}
