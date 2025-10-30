@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from app.services.nlp_processor import extract_keywords, clean_text, analyze_sentiment, text_to_embeddings
-from app.postgres_DB.postgres import insert_offer_analysis, insert_posting_history
+from app.postgres_DB.postgres import insert_offer_analysis, insert_history
 
 process_offer = Blueprint('process_offer', __name__)
 
@@ -14,7 +14,7 @@ def create_offer():
     user_id = data.get('user_id', '')
     title = data.get('title', '')
     comment = data.get('comment','')
-    category = data.get('category', '')
+    category = data.get('category', '').lower()
     
 
 
@@ -36,13 +36,14 @@ def create_offer():
     ids=chroma_ids,
     embeddings=[emb_title, emb_comment],  
     metadatas=[
-        {"offer_id": offer_id, "type": "title", "category": category.lower()},
-        {"offer_id": offer_id, "type": "comment", "category": category.lower()},
+        {"offer_id": offer_id, "type": "title", "category": category},
+        {"offer_id": offer_id, "type": "comment", "category": category},
     ]
     )
+
     # --- Guardar análisis NLP en Supabase/PostgreSQL ---
     insert_offer_analysis(offer_id, keywords, sentiment,False,False)
-    insert_posting_history(offer_id, user_id)
+    insert_history(offer_id, user_id, "pub")
     
 
     return jsonify({"message": "Documents added successfully"}), 200

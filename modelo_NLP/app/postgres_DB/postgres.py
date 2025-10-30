@@ -26,11 +26,12 @@ def insert_offer_analysis(offer_id, keywords, sentiment, needs_title_reindex, ne
     supabase.table("offer_nlp_analysis").insert(data).execute()
     return data
 
-def insert_posting_history(offer_id, user_id):
+def insert_history(offer_id, user_id, type):
     supabase = get_supabase_client()
     data = {
         "id_offer": offer_id,
-        "id_user": user_id
+        "id_user": user_id,
+        "type": type
     }
-    supabase.table("posting_history").insert(data).execute()
+    supabase.table("history").insert(data).execute()
     return data
