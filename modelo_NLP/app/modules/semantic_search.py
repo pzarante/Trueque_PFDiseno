@@ -8,7 +8,7 @@ semantic_search = Blueprint('semantic_search', __name__)
 def search_offers():
     query_text = request.args.get("query", "").strip()
     n = int(request.args.get("n", 10))
-    category = request.args.get("category", "").lower()
+    category = request.args.get("category", "")
 
     if not query_text:
         return jsonify({"error": "Parámetro 'query' es obligatorio"}), 400
@@ -18,13 +18,13 @@ def search_offers():
     query_embedding = text_to_embeddings(clear_query)
 
     # Para filtros combinados
-    where_filter = {"category": category} if category else {}
+    where_filter = {"category": {"$eq": category}} if category else None
 
     if category:
         results = current_app.collection.query(
             query_embeddings=[query_embedding],
             n_results=n,
-            where={"category": category}
+            where=where_filter
         )
     else:
         results = current_app.collection.query(
