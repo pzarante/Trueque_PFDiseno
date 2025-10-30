@@ -8,7 +8,7 @@ semantic_search = Blueprint('semantic_search', __name__)
 def search_offers():
     query_text = request.args.get("query", "").strip()
     n = int(request.args.get("n", 10))
-    category = request.args.get("category", "")
+    category = request.args.get("category", "").lower()
 
     if not query_text:
         return jsonify({"error": "Parámetro 'query' es obligatorio"}), 400

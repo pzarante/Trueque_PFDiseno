@@ -15,7 +15,7 @@ def bulk_insert_offers():
         offer_id = offer.get("offer_id")
         title = offer.get("title", "")
         comment = offer.get("comment", "")
-        category = offer.get("category", "")
+        category = offer.get("category", "").lower()
         user_id = offer.get("user_id")
 
         # 1️⃣ Procesamiento de texto
