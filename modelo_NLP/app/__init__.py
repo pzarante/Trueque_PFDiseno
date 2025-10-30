@@ -16,7 +16,9 @@ def create_app():
     # Registrar blueprints
     from app.modules.process_offer import process_offer
     from app.modules.semantic_search import semantic_search
+    from app.modules.bulk_insert import bulk_insert
     app.register_blueprint(process_offer)
     app.register_blueprint(semantic_search)
+    app.register_blueprint(bulk_insert)
     
     return app

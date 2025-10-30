@@ -7,7 +7,7 @@ semantic_search = Blueprint('semantic_search', __name__)
 @semantic_search.route('/search', methods=['GET'])
 def search_offers():
     query_text = request.args.get("query", "").strip()
-    n = int(request.args.get("n", 20))
+    n = int(request.args.get("n", 10))
     category = request.args.get("category", "").lower()
 
     if not query_text:
@@ -20,10 +20,17 @@ def search_offers():
     # Para filtros combinados
     where_filter = {"category": category} if category else {}
 
-    results = current_app.collection.query(
-        query_embeddings=query_embedding,
-        n_results=n
-    )
+    if category:
+        results = current_app.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=n,
+            where={"category": category}
+        )
+    else:
+        results = current_app.collection.query(
+            query_embeddings=query_embedding,
+            n_results=n
+        )
 
     offers = []
     for i, meta in enumerate(results["metadatas"][0]):
