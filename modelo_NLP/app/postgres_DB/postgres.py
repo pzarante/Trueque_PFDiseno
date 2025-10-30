@@ -35,3 +35,26 @@ def insert_history(offer_id, user_id, type):
     }
     supabase.table("history").insert(data).execute()
     return data
+
+def get_user_publication_history(user_id):
+ 
+    supabase = get_supabase_client()
+    
+    response = supabase.table("history")\
+        .select("id_offer")\
+        .eq("id_user", user_id)\
+        .eq("type", "pub")\
+        .execute()
+    
+    return [item["id_offer"] for item in response.data]
+
+def get_user_consultation_history(user_id):
+    supabase = get_supabase_client()
+    
+    response = supabase.table("history")\
+        .select("id_offer")\
+        .eq("id_user", user_id)\
+        .eq("type", "con")\
+        .execute()
+    
+    return [item["id_offer"] for item in response.data]

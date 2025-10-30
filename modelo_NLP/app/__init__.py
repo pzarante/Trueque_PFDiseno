@@ -17,8 +17,12 @@ def create_app():
     from app.modules.process_offer import process_offer
     from app.modules.semantic_search import semantic_search
     from app.modules.bulk_insert import bulk_insert
+    from app.modules.recommendations import recommendations
+
+    
     app.register_blueprint(process_offer)
     app.register_blueprint(semantic_search)
+    app.register_blueprint(recommendations)
     app.register_blueprint(bulk_insert)
     
     return app
