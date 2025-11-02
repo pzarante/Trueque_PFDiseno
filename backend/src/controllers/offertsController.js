@@ -1,80 +1,101 @@
-import prisma from "../config/database.js";
+import prisma from '../config/database.js';
 
-export const createOffer = async (req, res) => {
-  try {
-    const userId = req.userId; 
-    const { titulo, categoria, imagenes, condiciones, comentario, ubicacion } = req.body;
-
-    if (!titulo || !categoria || !imagenes || !comentario || !ubicaciones) {
-      return res.status(400).json({ error: "Campos obligatorios incompletos" });
-    }
-
-    if (imagenes.length > 3) {
-      return res.status(400).json({ error: "Máximo 3 imágenes permitidas" });
-    }
-
-    const oferta = await prisma.oferta.create({
-      data: {
-        titulo,
-        categoria,
-        imagenes,
-        condiciones,
-        comentario,
-        ubicacion,
-        creadorId: userId,
-      },
-    });
-
-    res.status(201).json(oferta);
-  } catch (error) {
-    res.status(500).json({ error: "Error al crear la oferta" });
-  }
-};
-
-export const updateOffer = async (req, res) => {
-    try {
-      const userId = req.userId;
-      const offerId = parseInt(req.params.id);
-      const { titulo, categoria, imagenes, condiciones, comentario, ubicacion } = req.body;
-  
-      const oferta = await prisma.oferta.findUnique({ where: { id: offerId } });
-  
-      if (!oferta) return res.status(404).json({ error: "Oferta no encontrada" });
-      if (oferta.creadorId !== userId) return res.status(403).json({ error: "No puedes editar esta oferta" });
-  
-      const updatedOffer = await prisma.oferta.update({
-        where: { id: offerId },
-        data: {
-          ...(titulo && { titulo }),
-          ...(categoria && { categoria }),
-          ...(imagenes && { imagenes }),
-          ...(condiciones && { condiciones }),
-          ...(comentario && { comentario }),
-          ...(ubicacion && { ubicacion }),
-        },
-      });
-  
-      res.json(updatedOffer);
-    } catch (error) {
-      res.status(500).json({ error: "Error al actualizar la oferta" });
-    }
-  };
-
-export const deleteOffer = async (req, res) => {
+export const createProduct = async (req, res) => {
   try {
     const userId = req.userId;
-    const offerId = parseInt(req.params.id);
+    const { nombre, categoria, imagenes, condicionesTrueque, comentarioNLP, ubicacion } = req.body;
 
-    const oferta = await prisma.oferta.findUnique({ where: { id: offerId } });
+    // Validaciones básicas
+    if (!nombre || !categoria || !comentarioNLP || !condicionesTrueque || !ubicacion) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios' });
+    }
 
-    if (!oferta) return res.status(404).json({ error: "Oferta no encontrada" });
-    if (oferta.creadorId !== userId) return res.status(403).json({ error: "No puedes eliminar esta oferta" });
+    if (imagenes && imagenes.length > 3) {
+      return res.status(400).json({ error: 'Máximo 3 imágenes permitidas' });
+    }
 
-    await prisma.oferta.delete({ where: { id: offerId } });
+    const producto = await prisma.producto.create({
+      data: {
+        nombre,
+        categoria,
+        imagenes,
+        condicionesTrueque,
+        comentarioNLP,
+        ubicacion,
+        oferenteId: userId,
+        estado: 'borrador'
+      }
+    });
 
-    res.json({ message: "Oferta eliminada correctamente" });
+    res.status(201).json(producto);
   } catch (error) {
-    res.status(500).json({ error: "Error al eliminar la oferta" });
+    console.error(error);
+    res.status(500).json({ error: 'Error al crear la oferta' });
   }
 };
 
+
+export const updateProduct = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+    const data = req.body;
+
+    const producto = await prisma.producto.findUnique({ where: { id } });
+    if (!producto || producto.oferenteId !== userId) {
+      return res.status(403).json({ error: 'No tienes permiso para editar esta oferta' });
+    }
+
+    const updated = await prisma.producto.update({
+      where: { id },
+      data
+    });
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar la oferta' });
+  }
+};
+
+export const deleteProduct = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    const producto = await prisma.producto.findUnique({ where: { id } });
+    if (!producto || producto.oferenteId !== userId) {
+      return res.status(403).json({ error: 'No tienes permiso para eliminar esta oferta' });
+    }
+
+    await prisma.producto.delete({ where: { id } });
+    res.json({ message: 'Oferta eliminada exitosamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar la oferta' });
+  }
+};
+
+export const changeStatus = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+    const { estado } = req.body;
+
+    if (!['borrador', 'publicada', 'pausada'].includes(estado)) {
+      return res.status(400).json({ error: 'Estado no válido' });
+    }
+
+    const producto = await prisma.producto.findUnique({ where: { id } });
+    if (!producto || producto.oferenteId !== userId) {
+      return res.status(403).json({ error: 'No tienes permiso para cambiar el estado de esta oferta' });
+    }
+
+    const updated = await prisma.producto.update({
+      where: { id },
+      data: { estado }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al cambiar el estado' });
+  }
+};

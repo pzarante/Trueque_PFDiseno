@@ -34,14 +34,16 @@ model Usuario {
 }
 
 model Producto {
-  id                  String   @id @default(uuid())
-  nombre              String
-  descripcion         String
-  categoria           String
-  imagen              String?
-  estado              String   @default("disponible")
-  fechaCreacion       DateTime @default(now())
-  fechaActualizacion  DateTime @updatedAt
+  id                 String    @id @default(uuid())
+  nombre             String
+  categoria          String
+  imagenes           String[]  
+  condicionesTrueque String
+  comentarioNLP      String   
+  ubicacion          String
+  estado             String    @default("borrador") // borrador | publicada | pausada
+  fechaCreacion      DateTime  @default(now())
+  fechaActualizacion DateTime  @updatedAt
 
   oferenteId          String
   oferente            Usuario  @relation("ProductosOfrecidos", fields: [oferenteId], references: [id])
