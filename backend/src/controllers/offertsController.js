@@ -99,3 +99,49 @@ export const changeStatus = async (req, res) => {
     res.status(500).json({ error: 'Error al cambiar el estado' });
   }
 };
+
+export const getUserProducts = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { estado, categoria } = req.query;
+
+    const where = { oferenteId: userId };
+    
+    if (estado) where.estado = estado;
+    if (categoria) where.categoria = categoria;
+
+    const productos = await prisma.producto.findMany({
+      where,
+      orderBy: { fechaCreacion: 'desc' }
+    });
+
+    res.json(productos);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener ofertas' });
+  }
+};
+
+export const getAllProducts = async (req, res) => {
+  try {
+    const { categoria, estado, ubicacion } = req.query;
+    
+    const where = { estado: 'publicada' };
+    if (categoria) where.categoria = categoria;
+    if (estado) where.estado = estado;
+    if (ubicacion) where.ubicacion = { contains: ubicacion, mode: 'insensitive' };
+
+    const productos = await prisma.producto.findMany({
+      where,
+      include: {
+        oferente: {
+          select: { nombre: true, ciudad: true }
+        }
+      },
+      orderBy: { fechaCreacion: 'desc' }
+    });
+
+    res.json(productos);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener ofertas' });
+  }
+};
