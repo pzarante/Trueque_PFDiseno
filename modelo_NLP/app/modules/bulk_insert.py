@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from app.services.nlp_processor import extract_keywords, clean_text, analyze_sentiment, text_to_embeddings
-from app.postgres_DB.postgres import insert_offer_analysis, insert_history
+from app.postgres_DB.postgres import insert_history, upsert_offer_analysis
 
 bulk_insert = Blueprint('bulk_insert', __name__)
 
@@ -39,7 +39,7 @@ def bulk_insert_offers():
         )
 
         # --- Guardar análisis NLP en Supabase/PostgreSQL ---
-        insert_offer_analysis(offer_id, keywords, sentiment,False,False)
+        upsert_offer_analysis(offer_id, keywords, sentiment,False,False)
         insert_history(offer_id, user_id, "pub")
 
     return jsonify({"message": "Documents added successfully"}), 200

@@ -11,20 +11,51 @@ def get_supabase_client() -> Client:
         raise ValueError("Variables SUPABASE_URL o SUPABASE_KEY no definidas en .env")
     return create_client(url, key)
 
-def insert_offer_analysis(offer_id, keywords, sentiment, needs_title_reindex, needs_comment_reindex):
-    supabase = get_supabase_client()
-    data = {
-        "offer_id": offer_id,
-        "keywords": keywords,
-        "sentiment": sentiment["sentiment"],
-        "confidence": sentiment["confidence"],
-        "polarity": sentiment["polarity"],
-        "subjectivity": sentiment["subjectivity"],
-        "needs_title_reindex": needs_title_reindex,
-        "needs_comment_reindex": needs_comment_reindex
-    }
-    supabase.table("offer_nlp_analysis").insert(data).execute()
-    return data
+def get_offer_analysis(offer_id):
+    """Verifica si ya existe un análisis para esta oferta"""
+    try:
+        supabase = get_supabase_client()
+        
+        # CONVERTIR offer_id a int si es necesario (según tu esquema)
+        offer_id_int = int(offer_id)
+        
+        response = supabase.table("offer_nlp_analysis")\
+            .select("offer_id")\
+            .eq("offer_id", offer_id_int)\
+            .execute()
+        
+        return len(response.data) > 0
+    except Exception as e:
+        print(f"Error checking offer analysis: {e}")
+        return False
+
+def upsert_offer_analysis(offer_id, keywords, sentiment, needs_title_reindex=False, needs_comment_reindex=False):
+    """Inserta o actualiza el análisis NLP de una oferta"""
+    try:
+        supabase = get_supabase_client()
+        
+        # CONVERTIR offer_id a int si es necesario
+        offer_id_int = int(offer_id)
+        
+        data = {
+            "offer_id": offer_id_int,
+            "keywords": keywords,
+            "sentiment": sentiment["sentiment"],
+            "confidence": sentiment["confidence"],
+            "polarity": sentiment["polarity"],
+            "subjectivity": sentiment["subjectivity"],
+            "needs_title_reindex": needs_title_reindex,
+            "needs_comment_reindex": needs_comment_reindex
+        }
+        
+        # Upsert en Supabase (insert y update en una operación)
+        response = supabase.table("offer_nlp_analysis").upsert(data).execute()
+        
+        print(f"Upserted analysis for offer {offer_id}")
+        return True
+    except Exception as e:
+        print(f"Error in upsert_offer_analysis: {e}")
+        return False
 
 def insert_history(offer_id, user_id, type):
     supabase = get_supabase_client()
@@ -78,3 +109,5 @@ def get_multiple_offers_keywords(offer_ids):
     except Exception as e:
         print(f"Error en get_multiple_offers_keywords: {e}")  # DEBUG
         return {}
+    
+
