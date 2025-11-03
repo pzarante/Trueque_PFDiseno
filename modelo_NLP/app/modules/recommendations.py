@@ -70,6 +70,7 @@ def recommendation():
       
 
     # Después de obtener recommended_offer_ids
+    #los keywords son solo para pruebas
     keywords_dict = get_multiple_offers_keywords(recommended_offer_ids)
 
     offers_with_keywords = []
