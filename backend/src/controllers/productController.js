@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-
 export const createProduct = async (req, res) => {
 try{
     const userId = req.userId;
@@ -20,33 +19,38 @@ try{
             tableName: 'productos',
             records:[
                 {
-                nombre,
-                categoria,
-                imagenes,
-                condicionesTrueque,
-                comentarioNLP,
-                ubicacion,
-                oferenteId: userId,
-                estado: 'borrador'
-            }
-
+                    nombre,
+                    categoria,
+                    imagenes,
+                    condicionesTrueque,
+                    comentarioNLP,
+                    ubicacion,
+                    oferenteId: userId,
+                    estado: 'borrador'
+                }
             ]
+        },
+        {
+            headers: {
+                Authorization: 'Bearer TU_ACCESS_TOKEN'
+            }
         }
     );
-        res.status(201).json(producto);
+    res.status(201).json(producto);
 }catch(error) {
     res.status(500).json({ error: 'Error al crear la oferta' });
 }
 };
 
 export const updateProduct = async (req, res) => {
-try{
-    const userId = req.userId;
-    const { id } = req.params;
-    const data = req.body;
+    try{
+        const userId = req.userId;
+        const { id } = req.params;
+        const data = req.body;
 
-    const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
+        const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
         {
+            headers: { Authorization: 'Bearer TU_ACCESS_TOKEN'},
             params: {
                 tableName: 'productos',
                 idColumn: '_id',
@@ -64,9 +68,14 @@ try{
             idColumn: '_id',
             idValue: id,
             data
+        },
+        {
+            headers: {
+                Authorization: 'Bearer TU_ACCESS_TOKEN'
+            }
         }
     );
-    res.json(updated);
+    res.json(update);
 }catch(error){
     res.status(500).json({ error: 'Error al actualizar la oferta' });
 }
@@ -84,6 +93,7 @@ export const changeStatus = async (req, res)=>{
 
     const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
         {
+            headers: { Authorization: 'Bearer TU_ACCESS_TOKEN'},
             params: {
                 tableName: 'productos',
                 idColumn: '_id',
@@ -101,6 +111,11 @@ export const changeStatus = async (req, res)=>{
             idColumn: '_id',
             idValue: id,
             updates:{estado}
+        },
+        {
+            headers: {
+                Authorization: 'Bearer TU_ACCESS_TOKEN'
+            }
         }
     );
     res.json(status);
@@ -116,6 +131,7 @@ export const DeleteProduct = async (req, res)=> {
 
         const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
         {
+            headers: { Authorization: 'Bearer TU_ACCESS_TOKEN'},
             params: {
                 tableName: 'productos',
                 idColumn: '_id',
@@ -129,6 +145,9 @@ export const DeleteProduct = async (req, res)=> {
 
     await axios.delete('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/delete',
         {
+            headers: {
+                Authorization: 'Bearer TU_ACCESS_TOKEN'
+            },
             data:{
                 tableName:'productos',
                 idColumn: '_id',
