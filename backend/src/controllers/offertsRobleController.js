@@ -4,6 +4,7 @@ export const createProduct = async (req, res) => {
 try{
     const userId = req.userId;
     const { nombre, categoria, imagenes, condicionesTrueque, comentarioNLP, ubicacion} = req.body;
+    const { accessToken } = req.headers;
 
     // Validaciones básicas
     if (!nombre || !categoria || !comentarioNLP || !condicionesTrueque || !ubicacion) {
@@ -32,7 +33,7 @@ try{
         },
         {
             headers: {
-                Authorization: 'Bearer TU_ACCESS_TOKEN'
+                Authorization: 'Bearer ${accessToken}'
             }
         }
     );
@@ -50,7 +51,7 @@ export const updateProduct = async (req, res) => {
 
         const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
         {
-            headers: { Authorization: 'Bearer TU_ACCESS_TOKEN'},
+            headers: { Authorization: 'Bearer ${accessToken}'},
             params: {
                 tableName: 'productos',
                 idColumn: '_id',
@@ -71,7 +72,7 @@ export const updateProduct = async (req, res) => {
         },
         {
             headers: {
-                Authorization: 'Bearer TU_ACCESS_TOKEN'
+                Authorization: 'Bearer ${accessToken}'
             }
         }
     );
@@ -93,7 +94,7 @@ export const changeStatus = async (req, res)=>{
 
     const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
         {
-            headers: { Authorization: 'Bearer TU_ACCESS_TOKEN'},
+            headers: { Authorization: 'Bearer ${accessToken}'},
             params: {
                 tableName: 'productos',
                 idColumn: '_id',
@@ -114,7 +115,7 @@ export const changeStatus = async (req, res)=>{
         },
         {
             headers: {
-                Authorization: 'Bearer TU_ACCESS_TOKEN'
+                Authorization: 'Bearer ${accessToken}'
             }
         }
     );
@@ -131,7 +132,7 @@ export const DeleteProduct = async (req, res)=> {
 
         const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
         {
-            headers: { Authorization: 'Bearer TU_ACCESS_TOKEN'},
+            headers: { Authorization: 'Bearer ${accessToken}'},
             params: {
                 tableName: 'productos',
                 idColumn: '_id',
@@ -146,7 +147,7 @@ export const DeleteProduct = async (req, res)=> {
     await axios.delete('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/delete',
         {
             headers: {
-                Authorization: 'Bearer TU_ACCESS_TOKEN'
+                Authorization: 'Bearer ${accessToken}'
             },
             data:{
                 tableName:'productos',
