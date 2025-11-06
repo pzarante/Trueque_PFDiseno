@@ -8,14 +8,11 @@ export const register = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const verificationToken = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '24h' });
-
-        await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/signup-direct', {
-            name,
-            email,
+        await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/signup', {
+            
+            email:email,
             password:password,
-            ciudad,
-            activo: false
+            name:name
         });
 
         console.log(email)
@@ -65,101 +62,43 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        const { accessToken } = req.headers;
-
-        const user = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
-            {
-                headers: { Authorization: 'Bearer ${accessToken}' },
-                paramas:{
-                    tableName: 'usuarios',
-                    email
-                }
-            }
-        );
-
-        if (!user) {
-            return res.status(401).json({ error: 'Credenciales inválidas' });
-        }
-
-        if (!user.emailVerificado) {
-            return res.status(401).json({ error: 'Debes verificar tu email primero' });
-        } 
-
-        if (!user.activo) {
-            return res.status(401).json({ error: 'Tu cuenta está desactivada' });
-        }
-
-        const isValidPassword = await bcrypt.compare(password, user.password);
-        
-        if (!isValidPassword) {
-            return res.status(401).json({ error: 'Credenciales inválidas' });
-        }
-
         const token = await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/login',
             {
-                email:user.email, 
-                password:user.password
+                email:email, 
+                password:password
             });
-
-        const ac_token = token.data.accessToken;
-            res.json({
-                ac_token,
-                user: {
-                    id: user.id,
-                    nombre: user.nombre,
-                    email: user.email,
-                    ciudad: user.ciudad
-                }
-            });
-
+        const Tok = token.data.accessToken;
+        console.log(Tok)
+        console.log(token);
+        res.status(201).json({
+        message: 'Credenciales correctas. Iniciando Sesion'});
     }catch (error) {
-        res.status(500).json({ error: 'Error al iniciar sesión' });
+        console.error("❌ Error al  iniciar sesion del usuario:", error.response?.data || error.message);
+        const er_data = error.response?.data
+        const er_mes = error.message
+        res.status(500).json({ error: 'Error al  iniciar sesion del usuario',er_data, er_mes });
     }
 };
 
 export const verifyEmail = async (req, res) => {
     try{
-    const { token } = req.params;
-    const { accessToken } = req.headers;
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const email = decoded.email;
-    const user = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
-            {
-                headers: { Authorization: 'Bearer ${accessToken}' },
-                paramas:{
-                    tableName: 'usuarios',
-                    email
-                }
-            }
-        );
-
-        if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    if (user.emailVerificado) {
-      return res.json({ message: 'Email ya verificado' });
-    }
-
-    await axios.put('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
+    const { email, code } = req.body;
+    await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/verify-email',
         {
-            tableName: 'usuarios',
-            idColumn: '_id',
-            idValue: user.id,
-            data:{
-                emailVerificado: true,
-                activo: true,
-                tokenVerificacion: null
-            }
-        },
-        {
-            headers: {
-                Authorization: 'Bearer ${accessToken}'
-            }
+            email:email,
+            code:code
         }
     );
+    res.status(201).json({
+        message: 'Usuario Verificado. Puede iniciar sesion'
+    }
+);
+
     }catch (error) {
-        res.status(500).json({ error: 'Error al verificar el email' });
+        console.error("❌ Error al verificar usuario:", error.response?.data || error.message);
+        const er_data = error.response?.data
+        const er_mes = error.message
+        res.status(500).json({ error: 'Error al registrar usuario',er_data, er_mes });
     }
 };
 
