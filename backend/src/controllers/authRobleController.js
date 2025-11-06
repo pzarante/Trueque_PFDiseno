@@ -103,9 +103,9 @@ export const verifyEmail = async (req, res) => {
 };
 
 export const forgotPassword = async (req, res) => {
-    /*try{
+    try{
     const { email } = req.body;
-    const { accessToken } = req.headers;
+    /*const { accessToken } = req.headers;
     const user = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
             {
                 headers: { Authorization: 'Bearer ${accessToken}' },
@@ -123,15 +123,38 @@ export const forgotPassword = async (req, res) => {
         {
             token:accessToken
         }
+    );*/
+    const forgot = await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/forgot-password',
+        {
+            email:email
+        }
     );
+   res.json('Se ha enviado información a tu correo' );
 
     }catch (error) {
-        res.status(500).json({ error: 'Error al procesar recuperación de contraseña' });
-    }*/
-   res.json('Coming soon' );
-};
+        console.error("❌ Error al procesar recuperación de contraseña", error.response?.data || error.message);
+        const er_data = error.response?.data
+        const er_mes = error.message
+        res.status(500).json({ error: 'Error al procesar recuperación de contraseña',er_data, er_mes  });
+    }
+
+
+}
 
 export const resetPassword = async (req,res) => {
-res.json('Coming soon');
+try{
+
+    const rest = forgotPassword.forgot;
+    const {newPassword} = req.body;
+    await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/reset-password', {
+        token: rest,
+        newPassword: newPassword
+      });
+}catch(error){
+    console.error("❌ Error al restaurar la contraseña", error.response?.data || error.message);
+    const er_data = error.response?.data
+    const er_mes = error.message
+    res.status(500).json({ error: 'Error al restaurar la contraseña',er_data, er_mes  });
+}
 };
 
