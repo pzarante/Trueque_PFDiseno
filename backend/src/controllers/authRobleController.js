@@ -1,17 +1,15 @@
 import axios from 'axios';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { act } from 'react';
 
 export const register = async (req, res) => {
     try{
-        const { name, email, password, city } = req.body;
-        const { accessToken } = req.headers;
+        const { name, email, password, ciudad } = req.body;
 
-        const existingUser = axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
+        /*const existingUser = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
             {
-                headers: { Authorization: 'Bearer ${accessToken}' },
-                paramas:{
+                headers: { Authorization: `Bearer ${accessToken}` },
+                params:{
                     tableName: 'usuarios',
                     email
                 }
@@ -19,29 +17,41 @@ export const register = async (req, res) => {
         );
         if (existingUser) {
             return res.status(400).json({ error: 'El email ya está registrado' });
-        }
+        }*/
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const verificationToken = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
         await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/signup-direct', {
-            name: name,
-            email: email,
-            password: hashedPassword,
-            ciudad: city,
+            name,
+            email,
+            password:password,
+            ciudad,
             activo: false
         });
 
-        const user = await axios.post('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/insert',
+        console.log(email)
+        console.log(password)
+        const token = await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/login',
+            {
+                email:email, 
+                password:password,
+                name:name
+            });
+
+        const Tok = token.data.accessToken;
+
+        console.log(Tok)
+       await axios.post('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/insert',
         {
             tableName: 'usuarios',
             records:[
                 {
                     nombre:name,
-                    email,
+                    email:email,
                     password:hashedPassword,
-                    ciudad:city,
+                    cuidad:ciudad,
                     tokenVerificacion: verificationToken,
                     activo: false
                 }
@@ -49,17 +59,19 @@ export const register = async (req, res) => {
         },
         {
             headers: {
-                Authorization: 'Bearer ${accessToken}'
+                Authorization: `Bearer ${Tok}`
             }
         }
     );
         res.status(201).json({
-        message: 'Usuario creado. Verifica tu email para activar tu cuenta',
-        userId: user.id
+        message: 'Usuario creado. Verifica tu email para activar tu cuenta'
     }
 );
     }catch(error){
-        res.status(500).json({ error: 'Error al registrar usuario' });
+        console.error("❌ Error al registrar usuario:", error.response?.data || error.message);
+        const er_data = error.response?.data
+        const er_mes = error.message
+        res.status(500).json({ error: 'Error al registrar usuario',er_data, er_mes });
     }
 };
 
@@ -68,7 +80,7 @@ export const login = async (req, res) => {
         const { email, password } = req.body;
         const { accessToken } = req.headers;
 
-        const user = axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
+        const user = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
             {
                 headers: { Authorization: 'Bearer ${accessToken}' },
                 paramas:{
@@ -96,7 +108,7 @@ export const login = async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        const token = axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/login',
+        const token = await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/login',
             {
                 email:user.email, 
                 password:user.password
@@ -124,7 +136,7 @@ export const verifyEmail = async (req, res) => {
     const { accessToken } = req.headers;
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const email = decoded.email;
-    const user = axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
+    const user = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
             {
                 headers: { Authorization: 'Bearer ${accessToken}' },
                 paramas:{
@@ -165,10 +177,10 @@ export const verifyEmail = async (req, res) => {
 };
 
 export const forgotPassword = async (req, res) => {
-    try{
+    /*try{
     const { email } = req.body;
     const { accessToken } = req.headers;
-    const user = axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
+    const user = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
             {
                 headers: { Authorization: 'Bearer ${accessToken}' },
                 paramas:{
@@ -189,5 +201,11 @@ export const forgotPassword = async (req, res) => {
 
     }catch (error) {
         res.status(500).json({ error: 'Error al procesar recuperación de contraseña' });
-    }
+    }*/
+   res.json('Coming soon' );
 };
+
+export const resetPassword = async (req,res) => {
+res.json('Coming soon');
+};
+

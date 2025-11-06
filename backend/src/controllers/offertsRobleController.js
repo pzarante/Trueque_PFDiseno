@@ -6,7 +6,6 @@ try{
     const { nombre, categoria, imagenes, condicionesTrueque, comentarioNLP, ubicacion} = req.body;
     const { accessToken } = req.headers;
 
-    // Validaciones básicas
     if (!nombre || !categoria || !comentarioNLP || !condicionesTrueque || !ubicacion) {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
