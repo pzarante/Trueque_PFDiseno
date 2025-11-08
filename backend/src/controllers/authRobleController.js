@@ -130,7 +130,7 @@ export const forgotPassword = async (req, res) => {
         }
     );
    res.json('Se ha enviado información a tu correo' );
-
+   console.log(forgot.resetToken);
     }catch (error) {
         console.error("❌ Error al procesar recuperación de contraseña", error.response?.data || error.message);
         const er_data = error.response?.data
@@ -144,8 +144,9 @@ export const forgotPassword = async (req, res) => {
 export const resetPassword = async (req,res) => {
 try{
 
-    const rest = forgotPassword.forgot;
+    const rest = login.token.refreshToken;
     const {newPassword} = req.body;
+    console.log(rest)
     await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/reset-password', {
         token: rest,
         newPassword: newPassword
