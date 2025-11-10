@@ -1,6 +1,7 @@
 import axios from 'axios';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { setAccessToken,setRefreshToken} from './storeToken.js';
 
 export const register = async (req, res) => {
   try {
@@ -36,7 +37,7 @@ export const register = async (req, res) => {
             email: email,
             ciudad: ciudad,
             fecha_creacion: new Date().toISOString().slice(0, 10),
-            ID : 2
+            active: false
           },
         ],
       },
@@ -62,11 +63,15 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const {email,password } = req.body;
-        await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/login',
+        const log = await axios.post('https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/login',
             {
                 email:email, 
                 password:password
             });
+        let accessToken = log.data.accessToken;
+        let refre = log.data.refreshToken;
+        setRefreshToken(refre);
+        setAccessToken(accessToken);
         res.status(201).json({
         message: 'Credenciales correctas. Iniciando Sesion'});
     }catch (error) {
@@ -85,7 +90,31 @@ export const verifyEmail = async (req, res) => {
             email:email,
             code:code
         }
-    );    
+    );   
+
+    const loginRes = await axios.post(
+      'https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/login',
+      {
+        email:"admin@swaply.com",
+        password:"12345@Dm"
+      }
+    );
+
+    const accessToken = loginRes.data.accessToken;
+
+    await axios.put('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
+      {
+        tableName:'usuarios',
+        idColumn:'email',
+        idValue:email,
+        updates: {active:true}
+      },
+      {
+        headers:{
+          Authorization:`Bearer ${accessToken}`
+        }
+      }
+    );
     res.status(201).json({
         message: 'Usuario Verificado. Puede iniciar sesion'
     });
@@ -117,7 +146,7 @@ export const forgotPassword = async (req, res) => {
     }
 
 
-}
+};
 
 export const resetPassword = async (req,res) => {
 try{

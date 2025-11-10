@@ -1,5 +1,4 @@
 import express from 'express';
-import { authMiddleware } from '../middleware/authMiddleware.js';
 import { createProduct, updateProduct, DeleteProduct, changeStatus } from '../controllers/offertsRobleController.js';
 
 const router = express.Router();
