@@ -1,10 +1,32 @@
-import axios from 'axios';
+import axios from "axios";
+import { getAccessToken, getRefreshToken,setAccessToken, setRefreshToken } from "./storeToken.js";
 
 export const createProduct = async (req, res) => {
 try{
-    const userId = req.userId;
     const { nombre, categoria, imagenes, condicionesTrueque, comentarioNLP, ubicacion} = req.body;
-    const { accessToken } = req.headers;
+    let accessToken = getAccessToken();
+    let refreshToken = getRefreshToken()
+    const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
+         refreshToken: `${refreshToken}` 
+        }
+    );
+    
+    accessToken = ref.data.accessToken;
+    refreshToken = ref.data.refreshToken;
+
+    setAccessToken(token);
+    setRefreshToken(refreshToken);
+
+    const userRes = await axios.get("https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",{
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: {
+            tableName: "usuarios",
+            email: email,
+            },
+        }
+        );
+    const userData = userRes.data[0];
+    const userId = userData._id;
 
     if (!nombre || !categoria || !comentarioNLP || !condicionesTrueque || !ubicacion) {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
@@ -19,20 +41,21 @@ try{
             tableName: 'productos',
             records:[
                 {
-                    nombre,
-                    categoria,
-                    imagenes,
-                    condicionesTrueque,
-                    comentarioNLP,
-                    ubicacion,
+                    nombre:nombre,
+                    categoria:categoria,
+                    imagenes:imagenes,
+                    condicionesTrueque:condicionesTrueque,
+                    comentarioNLP:comentarioNLP,
+                    ubicacion:ubicacion,
                     oferenteId: userId,
-                    estado: 'borrador'
+                    estado: 'borrador',
+                    fechaCreacion: new Date().toISOString().slice(0, 10)
                 }
             ]
         },
         {
             headers: {
-                Authorization: 'Bearer ${accessToken}'
+                Authorization: `Bearer ${accessToken}`
             }
         }
     );

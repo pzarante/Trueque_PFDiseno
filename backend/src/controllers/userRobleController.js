@@ -6,15 +6,11 @@ export const getProfile = async (req, res) => {
     const email = req.email; 
     let token = getAccessToken();
     let refreshToken = getRefreshToken()
-    console.log(email)
     const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
          refreshToken: `${refreshToken}` 
         }
     );
-
-    console.log("AccessToken actual:",ref.data.accessToken);
-    console.log("refreshToken actual:",ref.data.refreshToken);
-    console.log(email);
+    
     token = ref.data.accessToken;
     refreshToken = ref.data.refreshToken;
 
