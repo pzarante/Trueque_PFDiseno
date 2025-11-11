@@ -1,7 +1,7 @@
 import axios from 'axios';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { setAccessToken,setRefreshToken} from './storeToken.js';
+import { setAccessToken,setRefreshToken,setEmail} from './storeToken.js';
 
 export const register = async (req, res) => {
   try {
@@ -72,6 +72,7 @@ export const login = async (req, res) => {
         let refre = log.data.refreshToken;
         setRefreshToken(refre);
         setAccessToken(accessToken);
+        setEmail(email);
         res.status(201).json({
         message: 'Credenciales correctas. Iniciando Sesion'});
     }catch (error) {

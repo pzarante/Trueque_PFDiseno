@@ -1,9 +1,9 @@
 import axios from "axios";
-import { getAccessToken, getRefreshToken,setAccessToken, setRefreshToken } from "./storeToken.js";
+import { getAccessToken, getRefreshToken,setAccessToken, setRefreshToken,getEmail } from "./storeToken.js";
 
 export const getProfile = async (req, res) => {
   try {
-    const email = req.email; 
+    let email = getEmail(); 
     let token = getAccessToken();
     let refreshToken = getRefreshToken()
     const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
@@ -43,7 +43,7 @@ export const getProfile = async (req, res) => {
 
 export const updateProfile = async(req, res) =>{
     try{
-        const email = req.email;
+        let email = getEmail();
         const {name, ciudad,descripcion } = req.body;
         let token = getAccessToken();
         let refreshToken = getRefreshToken()
@@ -96,7 +96,7 @@ export const updateProfile = async(req, res) =>{
 
 export const deactivateAccount = async(req, res) =>{
     try{
-        const email = req.email;
+        let email = getEmail();
         const {name, ciudad,descripcion } = req.body;
         let token = getAccessToken();
         let refreshToken = getRefreshToken()

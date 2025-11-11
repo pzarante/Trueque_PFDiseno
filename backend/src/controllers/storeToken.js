@@ -1,6 +1,6 @@
 let accessToken = null;
 let refreshToken = null;
-const Email = null;
+let Email = null;
 
 export const setAccessToken = (token) => {
   accessToken = token;
@@ -15,4 +15,11 @@ export const setRefreshToken = (token) => {
   };
 export const getRefreshToken = () => {
   return refreshToken;
+};
+
+export const setEmail = (email) => {
+   Email = email; 
+  };
+export const getEmail = () => {
+  return Email;
 };

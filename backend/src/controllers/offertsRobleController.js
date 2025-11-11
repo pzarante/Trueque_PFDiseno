@@ -1,11 +1,12 @@
 import axios from "axios";
-import { getAccessToken, getRefreshToken,setAccessToken, setRefreshToken } from "./storeToken.js";
+import { getAccessToken, getRefreshToken,getEmail,setAccessToken, setRefreshToken } from "./storeToken.js";
 
 export const createProduct = async (req, res) => {
 try{
     const { nombre, categoria, imagenes, condicionesTrueque, comentarioNLP, ubicacion} = req.body;
     let accessToken = getAccessToken();
-    let refreshToken = getRefreshToken()
+    let refreshToken = getRefreshToken();
+    let email = getEmail();
     const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
          refreshToken: `${refreshToken}` 
         }
@@ -14,7 +15,7 @@ try{
     accessToken = ref.data.accessToken;
     refreshToken = ref.data.refreshToken;
 
-    setAccessToken(token);
+    setAccessToken(accessToken);
     setRefreshToken(refreshToken);
 
     const userRes = await axios.get("https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",{
@@ -43,11 +44,11 @@ try{
                 {
                     nombre:nombre,
                     categoria:categoria,
-                    imagenes:imagenes,
+                    imagenes:imagenes || [],
                     condicionesTrueque:condicionesTrueque,
                     comentarioNLP:comentarioNLP,
                     ubicacion:ubicacion,
-                    oferenteId: userId,
+                    oferenteID: userId,
                     estado: 'borrador',
                     fechaCreacion: new Date().toISOString().slice(0, 10)
                 }
@@ -59,128 +60,206 @@ try{
             }
         }
     );
-    res.status(201).json(producto);
+
+    res.status(201).json("Producto creado exitosamente");
 }catch(error) {
-    res.status(500).json({ error: 'Error al crear la oferta' });
+    console.error("❌ Error al crear oferta:");
+  if (error.response) {
+    console.error("Respuesta del servidor:", error.response.data);
+  } else if (error.request) {
+    console.error("No hubo respuesta del servidor:", error.request._header);
+  } else {
+    console.error("Error interno:", error.message);
+  }
+
+  res.status(500).json({
+    error: "Error al crear oferta",
+    detalles: error.response?.data?.message || error.message,
+  });
 }
 };
 
 export const updateProduct = async (req, res) => {
     try{
-        const userId = req.userId;
         const { id } = req.params;
-        const data = req.body;
+        const {nombre, categoria, condicionesTrueque, comentarioNLP, ubicacion} = req.body;
 
-        const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
-        {
-            headers: { Authorization: 'Bearer ${accessToken}'},
-            params: {
+        let accessToken = getAccessToken();
+        let refreshToken = getRefreshToken()
+        let email = getEmail();
+        const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
+             refreshToken: `${refreshToken}` 
+            });
+    
+        accessToken = ref.data.accessToken;
+        refreshToken = ref.data.refreshToken;
+
+        setAccessToken(accessToken);
+        setRefreshToken(refreshToken);
+
+        const userRes = await axios.get("https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",{
+                headers: { Authorization: `Bearer ${accessToken}` },
+                params: {
+                tableName: "usuarios",
+                email: email
+                },
+            });
+        const userData = userRes.data[0];
+        const userId = userData._id;
+
+        const producto = await axios.get("https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",{
+                headers: { Authorization: `Bearer ${accessToken}` },
+                params: {
+                tableName: "productos",
+                oferenteID: userId,
+                nombre:nombre
+                },
+            });
+
+        const productoData = producto.data[0];
+        const productoID = productoData._id;
+
+        const update = await axios.put('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
+            {
                 tableName: 'productos',
                 idColumn: '_id',
-                idValue: id
+                idValue: productoID,
+                updates:{condicionesTrueque:condicionesTrueque,comentarioNLP:comentarioNLP, ubicacion:ubicacion, fecha_actualizacion:new Date().toISOString().slice(0, 10)}
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
             }
-        }
-    );
-    if (!producto || producto.oferenteId !== userId) {
-      return res.status(403).json({ error: 'No tienes permiso para editar esta oferta' });
+        );
+        res.json("Actualizacion de producto exitosa");
+    }catch(error){
+        console.error("❌ Error al actualizar producto:", error.response?.data || error.message);
+        res.status(500).json({
+        error: "Error alactualizar producto",
+        detalles: error.response?.data || error.message,
+        });  
     }
-
-    const update = await axios.put('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
-        {
-            tableName: 'productos',
-            idColumn: '_id',
-            idValue: id,
-            data
-        },
-        {
-            headers: {
-                Authorization: 'Bearer ${accessToken}'
-            }
-        }
-    );
-    res.json(update);
-}catch(error){
-    res.status(500).json({ error: 'Error al actualizar la oferta' });
-}
 };
 
 export const changeStatus = async (req, res)=>{
     try{
-        const userId = req.userId;
-        const { id } = req.params;
-        const { estado } = req.body;
+        const {estado,nombre} = req.body;
+        let accessToken = getAccessToken();
+        let refreshToken = getRefreshToken()
+        let email = getEmail();
+        const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
+             refreshToken: `${refreshToken}` 
+            });
+    
+        accessToken = ref.data.accessToken;
+        refreshToken = ref.data.refreshToken;
 
-        if (!['borrador', 'publicada', 'pausada'].includes(estado)) {
-      return res.status(400).json({ error: 'Estado no válido' });
-    }
+        setAccessToken(accessToken);
+        setRefreshToken(refreshToken);
 
-    const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
-        {
-            headers: { Authorization: 'Bearer ${accessToken}'},
-            params: {
+        const userRes = await axios.get("https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",{
+                headers: { Authorization: `Bearer ${accessToken}` },
+                params: {
+                tableName: "usuarios",
+                email: email,
+                },
+            });
+        const userData = userRes.data[0];
+        const userId = userData._id;
+
+        const producto = await axios.get("https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",{
+                headers: { Authorization: `Bearer ${accessToken}` },
+                params: {
+                tableName: "productos",
+                oferenteID: userId,
+                nombre:nombre
+                },
+            });
+
+        console.log(producto);
+        const productoData = producto.data[0];
+        const productoID = productoData._id;
+
+        const update = await axios.put('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
+            {
                 tableName: 'productos',
                 idColumn: '_id',
-                idValue: id
+                idValue: productoID,
+                updates:{estado:estado, fecha_actualizacion:new Date().toISOString().slice(0, 10)}
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
             }
-        }
-    );
-    if (!producto || producto.oferenteId !== userId) {
-      return res.status(403).json({ error: 'No tienes permiso para cambiar el estado de esta oferta' });
-    }
-
-    const status = await axios.put('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
-        {
-            tableName: 'productos',
-            idColumn: '_id',
-            idValue: id,
-            updates:{estado}
-        },
-        {
-            headers: {
-                Authorization: 'Bearer ${accessToken}'
-            }
-        }
-    );
-    res.json(status);
+        );
+        res.json("Actualizacion de producto exitosa");
     }catch(error){
-        res.status(500).json({ error: 'Error al cambiar el estado' });
+        console.error("❌ Error al cambiar estado del producto:", error.response?.data || error.message);
+        res.status(500).json({
+        error: "Error al cambiar estado del producto",
+        detalles: error.response?.data || error.message,
+        });  
     }
 };
 
 export const DeleteProduct = async (req, res)=> {
     try{
-        const userId = req.userId;
-        const { id } = req.params;
+        const {nombre} = req.body;
+        let accessToken = getAccessToken();
+        let refreshToken = getRefreshToken();
+        let email = getEmail();
+        const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
+             refreshToken: `${refreshToken}` 
+            });
+    
+        accessToken = ref.data.accessToken;
+        refreshToken = ref.data.refreshToken;
 
-        const producto = await axios.get('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read',
-        {
-            headers: { Authorization: 'Bearer ${accessToken}'},
-            params: {
-                tableName: 'productos',
-                idColumn: '_id',
-                idValue: id
-            }
-        }
-    );
-    if (!producto || producto.oferenteId !== userId) {
-      return res.status(403).json({ error: 'No tienes permiso para eliminar esta oferta' });
-    }
+        setAccessToken(accessToken);
+        setRefreshToken(refreshToken);
+
+        const userRes = await axios.get("https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",{
+                headers: { Authorization: `Bearer ${accessToken}` },
+                params: {
+                tableName: "usuarios",
+                email: email,
+                },
+            });
+        const userData = userRes.data[0];
+        const userId = userData._id;
+        const producto = await axios.get("https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",{
+                headers: { Authorization: `Bearer ${accessToken}` },
+                params: {
+                tableName: "productos",
+                oferenteID: userId,
+                nombre:nombre
+                },
+            });
+
+        const productoData = producto.data[0];
+        const productoID = productoData._id;
 
     await axios.delete('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/delete',
         {
             headers: {
-                Authorization: 'Bearer ${accessToken}'
+                Authorization: `Bearer ${accessToken}`
             },
             data:{
                 tableName:'productos',
                 idColumn: '_id',
-                idValue: id
+                idValue: productoID
             }
         }
     );
     res.json({ message: 'Oferta eliminada exitosamente' });
     }catch(error){
-        res.status(500).json({ error: 'Error al eliminar la oferta' });
+        console.error("❌ Error al eliminar producto:", error.response?.data || error.message);
+        res.status(500).json({
+        error: "Error al eliminar producto",
+        detalles: error.response?.data || error.message,
+        }); 
     }
 };
 
