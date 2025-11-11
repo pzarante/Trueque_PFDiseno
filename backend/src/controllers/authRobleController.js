@@ -2,10 +2,19 @@ import axios from 'axios';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { setAccessToken,setRefreshToken,setEmail} from './storeToken.js';
+import { validateRecaptcha } from "../recaptcha/recaptcha.service.js";
 
 export const register = async (req, res) => {
   try {
     const { name, email, password, ciudad } = req.body;
+
+    try {
+      await validateRecaptcha(token);
+      console.log(" reCAPTCHA validado correctamente");
+    } catch (err) {
+      console.error(" Error al validar reCAPTCHA:", err.message);
+      return res.status(403).json({ error: "Captcha inválido o expirado" });
+    }
 
     
     const authRes = await axios.post(
