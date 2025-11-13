@@ -30,15 +30,29 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
 
   // Cargar reCAPTCHA
   useEffect(() => {
-    const existing = document.querySelector("script[src='https://www.google.com/recaptcha/api.js']");
-    if (!existing) {
-      const script = document.createElement("script");
-      script.src = "https://www.google.com/recaptcha/api.js";
-      script.async = true;
-      script.defer = true;
-      document.body.appendChild(script);
+  const existing = document.querySelector("script[src*='recaptcha']");
+  if (!existing) {
+    const script = document.createElement("script");
+    script.src = "https://www.google.com/recaptcha/api.js";
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+  }
+}, []);
+
+  useEffect(() => {
+  // Forzar render si el script ya estaba cargado
+  setTimeout(() => {
+    // @ts-ignore
+    if (window.grecaptcha && document.querySelector(".g-recaptcha")) {
+      // @ts-ignore
+      window.grecaptcha.render(document.querySelector(".g-recaptcha"), {
+        sitekey: import.meta.env.VITE_RECAPTCHA_SITE_KEY,
+      });
     }
-  }, []);
+  }, 500);
+}, []);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,12 +63,11 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
       return;
     }
     
+    
     await fetch("http://localhost:3000/auth/register", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, email, password, city, token }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password, city,  captchaToken: token }),
     });
 
     onRegister(name, email, password, city, token);
@@ -163,12 +176,12 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
             </div>
 
             {/* Captcha  */}
-            <div className="w-full flex justify-center items-center mt-6">
-          <div
-              className="g-recaptcha transform scale-100"
-              data-sitekey="6LdudgksAAAAAC3uOubF5hL2JB7p9rHyCKNdEuG"
-          ></div>
-          </div>
+            <div className="flex justify-center mt-4">
+  <div
+    className="g-recaptcha"
+    data-sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+  ></div>
+</div>
 
 
             <Button

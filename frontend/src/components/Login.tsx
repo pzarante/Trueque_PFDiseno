@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -25,6 +25,29 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
   const [password, setPassword] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  
+  useEffect(() => {
+  // Cargar script si no existe
+  const existing = document.querySelector("script[src*='recaptcha']");
+  if (!existing) {
+    const script = document.createElement("script");
+    script.src = "https://www.google.com/recaptcha/api.js";
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+  }
+
+  // Forzar re-render
+  setTimeout(() => {
+    // @ts-ignore
+    if (window.grecaptcha && document.querySelector(".g-recaptcha")) {
+      // @ts-ignore
+      window.grecaptcha.render(document.querySelector(".g-recaptcha"), {
+        sitekey: import.meta.env.VITE_RECAPTCHA_SITE_KEY,
+      });
+    }
+  }, 500);
+}, []);
 
   const handleUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,7 +163,8 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
                     required
                     className="bg-input-background"
                   />
-                </div>
+                  
+              </div>
 
                 <Button
                   type="submit"
@@ -188,7 +212,7 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
                     className="bg-input-background"
                   />
                 </div>
-
+                
                 <Button
                   type="submit"
                   className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses}`}
@@ -199,6 +223,15 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
               </form>
             </TabsContent>
           </Tabs>
+
+           {/* CAPTCHA GLOBAL */}
+         <div className="flex justify-center mt-4">
+         <div
+          id="global-recaptcha"
+          className="g-recaptcha"
+          data-sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+         ></div>
+        </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
