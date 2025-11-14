@@ -8,8 +8,12 @@ $ npm install dotenv
 $ npm install @nestjs/config
 ```
 Para ejecutar:
-cd backend
-npm start
+cd backend;
+
+crear la imagen: docker build -t backend-auditoria . 
+
+correr el Dockerfile: 
+docker run --env-file .env -p 3000:3000 backend-auditoria
 
 ## Compile and run the project
 
