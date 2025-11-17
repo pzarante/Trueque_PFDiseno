@@ -1,12 +1,18 @@
 import axios from "axios";
 import { getAccessToken, getRefreshToken,getEmail,setAccessToken, setRefreshToken } from "./storeToken.js";
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const createProduct = async (req, res) => {
 try{
-    const { nombre, categoria, imagenes, condicionesTrueque, comentarioNLP, ubicacion} = req.body;
+    const { nombre, categoria, condicionesTrueque, comentarioNLP, ubicacion } = req.body; 
     let accessToken = getAccessToken();
     let refreshToken = getRefreshToken();
     let email = getEmail();
+    
     const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
          refreshToken: `${refreshToken}` 
         }
@@ -25,7 +31,8 @@ try{
             email: email,
             },
         }
-        );
+    );
+    
     const userData = userRes.data[0];
     const userId = userData._id;
 
@@ -33,26 +40,48 @@ try{
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
-    if (imagenes && imagenes.length > 3) {
-      return res.status(400).json({ error: 'Máximo 3 imágenes permitidas' });
+    let imagenesJSON = [];
+
+    if (req.files && req.files.length > 0) {
+    console.log('Archivos recibidos:', req.files.length);
+    
+    if (req.files.length > 3) {
+        return res.status(400).json({ error: 'Máximo 3 imágenes permitidas' });
     }
 
-    const producto = await axios.post('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/insert',
+    imagenesJSON = req.files.map(file => ({
+        filename: file.filename,
+        originalname: file.originalname,
+        url: `/uploads/${file.filename}`
+    }));
+    
+    imagenesJSON = JSON.stringify(imagenesJSON);
+    
+    } else {
+    console.log('No se recibieron archivos');
+    imagenesJSON = JSON.stringify([]); 
+    }
+
+    const productData = {
+        nombre: nombre,
+        categoria: categoria,
+        imagenes: imagenesJSON, 
+        condicionesTrueque: condicionesTrueque,
+        comentarioNLP: comentarioNLP,
+        ubicacion: ubicacion,
+        oferenteID: userId,
+        estado: 'borrador',
+        fechaCreacion: new Date().toISOString().slice(0, 10)
+    };
+    
+    console.log('📦 DATOS A ENVIAR A ROBLE:', productData);
+
+    console.log('🚀 Enviando a ROBLE...');
+    const producto = await axios.post(
+        'https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/insert',
         {
             tableName: 'productos',
-            records:[
-                {
-                    nombre:nombre,
-                    categoria:categoria,
-                    imagenes:imagenes || [],
-                    condicionesTrueque:condicionesTrueque,
-                    comentarioNLP:comentarioNLP,
-                    ubicacion:ubicacion,
-                    oferenteID: userId,
-                    estado: 'borrador',
-                    fechaCreacion: new Date().toISOString().slice(0, 10)
-                }
-            ]
+            records: [productData]
         },
         {
             headers: {
@@ -61,22 +90,39 @@ try{
         }
     );
 
-    res.status(201).json("Producto creado exitosamente");
-}catch(error) {
-    console.error("❌ Error al crear oferta:");
-  if (error.response) {
-    console.error("Respuesta del servidor:", error.response.data);
-  } else if (error.request) {
-    console.error("No hubo respuesta del servidor:", error.request._header);
-  } else {
-    console.error("Error interno:", error.message);
-  }
+    // Verificar si realmente se insertó
+    if (producto.data.inserted && producto.data.inserted.length > 0) {
+        res.status(201).json({
+          message: "Producto creado exitosamente en la base de datos"
+        });
+    } else {
+        console.error('Producto no insertado. Razón:', producto.data.skipped?.[0]?.reason);
+        res.status(400).json({
+          error: "No se pudo guardar en la base de datos",
+          detalles: producto.data.skipped?.[0]?.reason
+        });
+    }
 
-  res.status(500).json({
-    error: "Error al crear oferta",
-    detalles: error.response?.data?.message || error.message,
-  });
+}catch(error) {
+    console.error(" ERROR AL CREAR OFERTA:", error.response?.data || error.message);
+    
+    res.status(500).json({
+      error: "Error al crear oferta",
+      detalles: error.response?.data || error.message,
+    });
 }
+};
+
+export const getProductImage = async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const imagePath = path.join(__dirname, '../uploads', filename);
+    
+    res.sendFile(imagePath);
+  } catch (error) {
+    console.error("Error al obtener imagen:", error);
+    res.status(404).json({ error: "Imagen no encontrada" });
+  }
 };
 
 export const updateProduct = async (req, res) => {
@@ -134,7 +180,7 @@ export const updateProduct = async (req, res) => {
         );
         res.json("Actualizacion de producto exitosa");
     }catch(error){
-        console.error("❌ Error al actualizar producto:", error.response?.data || error.message);
+        console.error("Error al actualizar producto:", error.response?.data || error.message);
         res.status(500).json({
         error: "Error alactualizar producto",
         detalles: error.response?.data || error.message,
@@ -196,7 +242,7 @@ export const changeStatus = async (req, res)=>{
         );
         res.json("Actualizacion de producto exitosa");
     }catch(error){
-        console.error("❌ Error al cambiar estado del producto:", error.response?.data || error.message);
+        console.error("Error al cambiar estado del producto:", error.response?.data || error.message);
         res.status(500).json({
         error: "Error al cambiar estado del producto",
         detalles: error.response?.data || error.message,
@@ -255,7 +301,7 @@ export const DeleteProduct = async (req, res)=> {
     );
     res.json({ message: 'Oferta eliminada exitosamente' });
     }catch(error){
-        console.error("❌ Error al eliminar producto:", error.response?.data || error.message);
+        console.error("Error al eliminar producto:", error.response?.data || error.message);
         res.status(500).json({
         error: "Error al eliminar producto",
         detalles: error.response?.data || error.message,
