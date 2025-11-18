@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Patch, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import { AuditoriaService } from './auditoria.service';
 
 @Controller('auditoria')
@@ -11,12 +11,7 @@ export class AuditoriaController {
   }
 
   @Get()
-  obtenerTodas() {
-    return this.auditoriaService.obtenerAuditoria();
-  }
-
-  @Patch(':id')
-  actualizar(@Param('id') id: string, @Body() cambios: any) {
-    return this.auditoriaService.registrarAuditoria({ _id: id, ...cambios });
+  obtener() {
+    return this.auditoriaService.obtenerAuditorias();
   }
 }
