@@ -20,6 +20,7 @@ def create_app():
     from app.modules.recommendations import recommendations
     from app.modules.register_consult import register_consult
     from app.modules.bulk_history import bulk_history
+    from app.modules.evaluate_bp import evaluate_bp
 
     
     app.register_blueprint(process_offer)
@@ -28,5 +29,7 @@ def create_app():
     app.register_blueprint(bulk_insert)
     app.register_blueprint(register_consult)
     app.register_blueprint(bulk_history)
+    app.register_blueprint(evaluate_bp)
+
     
     return app
