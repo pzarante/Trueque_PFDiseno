@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.postgres_DB.postgres import insert_history
+from app.postgres_DB.postgres import insert_history, get_offer_owner
 
 register_consult = Blueprint('register_consult', __name__)
 
@@ -14,6 +14,18 @@ def add_history():
     if not offer_id or not user_id:
         return jsonify({"error": "offer_id and user_id are required"}), 400
 
+    # Obtener el propietario real de la oferta
+    owner_id = get_offer_owner(offer_id)
+
+    if owner_id is None:
+        return jsonify({"error": "Offer not found in Supabase"}), 404
+    
+    if owner_id == user_id:
+        return jsonify({
+            "message": "The user owns this offer — skipping consultation history.",
+            "skipped": True
+        }), 200
+    
     try:
         insert_history(offer_id, user_id, "con")
 

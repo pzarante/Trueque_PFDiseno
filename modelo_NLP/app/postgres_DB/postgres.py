@@ -110,4 +110,25 @@ def get_multiple_offers_keywords(offer_ids):
         print(f"Error en get_multiple_offers_keywords: {e}")  # DEBUG
         return {}
     
+def get_offer_owner(offer_id):
+    try:
+        supabase = get_supabase_client()
+
+        offer_id_int = int(offer_id)
+
+        response = supabase.table("history") \
+            .select("id_user") \
+            .eq("id_offer", offer_id) \
+            .eq("type", "pub") \
+            .limit(1) \
+            .execute()
+
+        if response.data and len(response.data) > 0:
+            return response.data[0]["id_user"]
+
+        return None
+    
+    except Exception as e:
+        print(f"Error getting owner for offer {offer_id}: {e}")
+        return None
 
