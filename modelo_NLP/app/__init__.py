@@ -18,11 +18,13 @@ def create_app():
     from app.modules.semantic_search import semantic_search
     from app.modules.bulk_insert import bulk_insert
     from app.modules.recommendations import recommendations
+    from app.modules.register_consult import register_consult
 
     
     app.register_blueprint(process_offer)
     app.register_blueprint(semantic_search)
     app.register_blueprint(recommendations)
     app.register_blueprint(bulk_insert)
+    app.register_blueprint(register_consult)
     
     return app
