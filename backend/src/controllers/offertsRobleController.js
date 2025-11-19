@@ -74,9 +74,6 @@ try{
         fechaCreacion: new Date().toISOString().slice(0, 10)
     };
     
-    console.log('📦 DATOS A ENVIAR A ROBLE:', productData);
-
-    console.log('🚀 Enviando a ROBLE...');
     const producto = await axios.post(
         'https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/insert',
         {
