@@ -32,14 +32,34 @@ try{
             },
         }
     );
-    
+        
     const userData = userRes.data[0];
     const userId = userData._id;
 
+        //Obtener IDs de los productos del usuario
+    const products = await axios.get(
+      "https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: {
+          tableName: "productos",
+          oferenteID: userId,
+        },
+      }
+    );
+
+    let productIds = products.data.map(product => product._id);
+    productIds = JSON.stringify(productIds);
+
+    let prodcutsName = products.data.map(product => product.nombre);
+    console.log(prodcutsName)
     if (!nombre || !categoria || !comentarioNLP || !condicionesTrueque || !ubicacion) {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
+    if (prodcutsName.includes(nombre)){
+        return res.status(400).json({error: 'ya existe un producto con ese nombre'})
+    };
     let imagenesJSON = [];
 
     if (req.files && req.files.length > 0) {
@@ -86,20 +106,6 @@ try{
             }
         }
     );
-    //Obtener IDs de los productos del usuario
-    const products = await axios.get(
-      "https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: {
-          tableName: "productos",
-          oferenteID: userId,
-        },
-      }
-    );
-
-     let productIds = products.data.map(product => product._id);
-     productIds = JSON.stringify(productIds);
 
      await axios.put('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
         {

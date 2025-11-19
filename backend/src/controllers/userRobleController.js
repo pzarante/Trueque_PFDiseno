@@ -33,7 +33,7 @@ export const getProfile = async (req, res) => {
       data: user.data,
     });
   } catch (error) {
-    console.error("❌ Error al buscar usuario:", error.response?.data || error.message);
+    console.error("Error al buscar usuario:", error.response?.data || error.message);
     res.status(500).json({
       error: "Error al buscar usuario",
       detalles: error.response?.data || error.message,
@@ -86,7 +86,7 @@ export const updateProfile = async(req, res) =>{
         message: "Información del usuario actualizada con éxito."
         });
     }catch(error){
-        console.error("❌ Error al buscar usuario:", error.response?.data || error.message);
+        console.error("Error al buscar usuario:", error.response?.data || error.message);
         res.status(500).json({
         error: "Error al buscar usuario",
         detalles: error.response?.data || error.message,
@@ -139,7 +139,7 @@ export const deactivateAccount = async(req, res) =>{
         message: "Información del usuario actualizada con éxito."
         });
     }catch(error){
-        console.error("❌ Error al buscar usuario:", error.response?.data || error.message);
+        console.error("Error al buscar usuario:", error.response?.data || error.message);
         res.status(500).json({
         error: "Error al buscar usuario",
         detalles: error.response?.data || error.message,
@@ -195,10 +195,53 @@ export const getProducts = async (req, res) =>{
     });
     
   }catch(error){
-    console.error("❌ Error al buscar productos:", error.response?.data || error.message);
+    console.error("Error al buscar productos:", error.response?.data || error.message);
         res.status(500).json({
         error: "Error al buscar productos",
         detalles: error.response?.data || error.message,
         });  
   }
 };
+
+export const filters = async (req,res)=>{
+  try{
+    const {categoria, ubicacion, estado} = req.body;
+    let token = getAccessToken();
+    let refreshToken = getRefreshToken()
+    const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
+         refreshToken: `${refreshToken}` 
+        }
+    );
+    
+    token = ref.data.accessToken;
+    refreshToken = ref.data.refreshToken;
+
+    setAccessToken(token);
+    setRefreshToken(refreshToken);
+
+
+    const products = await axios.get(
+      "https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          tableName: "productos",
+          categoria: categoria,
+          ubicacion: ubicacion,
+          estado: estado
+        },
+      }
+    );
+
+    res.status(200).json({
+      message: "Productos obtenidos con éxito.",
+      data: products.data,
+    });
+  }catch(error){
+    console.error("Error al buscar productos:", error.response?.data || error.message);
+    res.status(500).json({
+    error: "Error al buscar productos",
+    detalles: error.response?.data || error.message,
+    });  
+  }
+}
