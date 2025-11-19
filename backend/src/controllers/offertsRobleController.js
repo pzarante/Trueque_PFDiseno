@@ -86,6 +86,34 @@ try{
             }
         }
     );
+    //Obtener IDs de los productos del usuario
+    const products = await axios.get(
+      "https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: {
+          tableName: "productos",
+          oferenteID: userId,
+        },
+      }
+    );
+
+     let productIds = products.data.map(product => product._id);
+     productIds = JSON.stringify(productIds);
+
+     await axios.put('https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
+        {
+            tableName:'usuarios',
+            idColumn:'_id',
+            idValue:userId,
+            updates: {productos_ofrecidos:productIds, fecha_actualizacion:new Date().toISOString().slice(0, 10)}
+        },
+        {
+            headers:{
+            Authorization:`Bearer ${accessToken}`
+            }
+        }
+        );
 
     // Verificar si realmente se insertó
     if (producto.data.inserted && producto.data.inserted.length > 0) {

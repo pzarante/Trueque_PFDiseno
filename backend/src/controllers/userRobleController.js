@@ -146,3 +146,59 @@ export const deactivateAccount = async(req, res) =>{
         });  
     }
 };
+
+export const getProducts = async (req, res) =>{
+  try{
+    let email = getEmail(); 
+    let token = getAccessToken();
+    let refreshToken = getRefreshToken()
+    const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token",{
+         refreshToken: `${refreshToken}` 
+        }
+    );
+    
+    token = ref.data.accessToken;
+    refreshToken = ref.data.refreshToken;
+
+    setAccessToken(token);
+    setRefreshToken(refreshToken);
+
+    const user = await axios.get(
+      "https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          tableName: "usuarios",
+          email: email,
+        },
+      }
+    );
+
+    const userData = user.data[0];
+    const userId = userData._id;
+
+    const products = await axios.get(
+      "https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          tableName: "productos",
+          oferenteID: userId,
+        },
+      }
+    );
+
+     const productIds = products.data.map(product => product._id);
+    res.status(200).json({
+      message: "Productos del usuario obtenidos con éxito.",
+      data: products.data,
+    });
+    
+  }catch(error){
+    console.error("❌ Error al buscar productos:", error.response?.data || error.message);
+        res.status(500).json({
+        error: "Error al buscar productos",
+        detalles: error.response?.data || error.message,
+        });  
+  }
+};
