@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import productRoutes from './routes/offertsRoutes.js';
+import truequesRoutes from './routes/truequesRoutes.js';
 
 dotenv.config();
 
@@ -16,9 +17,18 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/trueques', truequesRoutes);
 
 app.get('/', (req, res) => {
-  res.json({ message: 'API Trueque funcionando' });
+  res.json({ 
+    message: 'API Trueque funcionando',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users', 
+      products: '/api/products',
+      trueques: '/api/trueques' // ← AGREGAR AL MENSAJE
+    }
+  });
 });
 
 app.listen(PORT, () => {
