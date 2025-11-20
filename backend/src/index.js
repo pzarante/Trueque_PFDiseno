@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       users: '/api/users', 
       products: '/api/products',
-      trueques: '/api/trueques' // ← AGREGAR AL MENSAJE
+      trueques: '/api/trueques' 
     }
   });
 });

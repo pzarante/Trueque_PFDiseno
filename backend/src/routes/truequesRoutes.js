@@ -1,33 +1,11 @@
 import express from 'express';
-import { 
-  proponerTrueque, 
-  getTruequesUsuario, 
-  confirmarTruequeOferente, 
-  confirmarTruequeDestinatario, 
-  rechazarTrueque 
-} from '../controllers/truequesController.js';
+import { createTradeProposal, confirmTrade, getUserTrades } from '../controllers/truequesController.js';
+import { validateFields } from "../middleware/validateFields.js";
 
 const router = express.Router();
 
-// Proponer un nuevo trueque
-router.post('/proponer', proponerTrueque);
-
-// Obtener todos los trueques del usuario (como oferente o destinatario)
-router.get('/mis-trueques', getTruequesUsuario);
-
-// Oferente confirma el trueque (primera confirmación)
-router.put('/confirmar-oferente', confirmarTruequeOferente);
-
-// Destinatario confirma el trueque (segunda confirmación - bilateral completa)
-router.put('/confirmar-destinatario', confirmarTruequeDestinatario);
-
-// Rechazar trueque (cualquiera de las partes)
-router.put('/rechazar', rechazarTrueque);
-
-// Registro final de cierre (después de confirmación bilateral)
-router.put('/registrar-cierre', registrarCierreTrueque);
-
-// Obtener trueques completados (historial)
-router.get('/completados', getTruequesCompletados);
+router.post('/propose', validateFields(['id_producto_oferente', 'id_producto_destinatario']), createTradeProposal);
+router.put('/:tradeId/confirm', validateFields(['accion']), confirmTrade); // accion: 'aceptar' o 'rechazar'
+router.get('/my-trades', getUserTrades);
 
 export default router;
