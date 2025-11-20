@@ -1,9 +1,17 @@
 import { motion } from "motion/react";
-import { ArrowRightLeft, User, LogOut, Menu, X, Bell, MessageSquare, Moon, Sun, Shield } from "lucide-react";
+import { ArrowRightLeft, User, LogOut, Menu, X, Bell, MessageSquare, Moon, Sun, Shield, Package } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { ThemeColorPicker, ThemeColor } from "./ThemeColorPicker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import { useState, useEffect } from "react";
 import { getGradientClasses, getShadowClasses, getBgClasses } from "../hooks/useThemeColor";
 
@@ -186,27 +194,38 @@ export function Navbar({
                           )}
                         </Button>
                       </motion.div>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        onClick={() => onNavigate("profile")}
-                        className="cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-                        aria-label="Ver mi perfil"
-                      >
-                        <Avatar>
-                          <AvatarFallback className={`bg-gradient-to-br ${gradientClasses} text-white`}>
-                            {user.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                      </motion.button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={onLogout}
-                        className="text-muted-foreground hover:text-foreground min-w-[44px] min-h-[44px]"
-                        aria-label="Cerrar sesión"
-                      >
-                        <LogOut className="w-5 h-5" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            className="cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center outline-none"
+                            aria-label="Menú de usuario"
+                          >
+                            <Avatar>
+                              <AvatarFallback className={`bg-gradient-to-br ${gradientClasses} text-white`}>
+                                {user.name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                          </motion.button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => onNavigate("dashboard")}>
+                            <Package className="w-4 h-4 mr-2" />
+                            Mi Dashboard
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onNavigate("profile")}>
+                            <User className="w-4 h-4 mr-2" />
+                            Mi Perfil
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={onLogout} className="text-red-600">
+                            <LogOut className="w-4 h-4 mr-2" />
+                            Cerrar Sesión
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </>
                 )}
@@ -352,6 +371,17 @@ export function Navbar({
                       Para Ti
                     </Button>
                     <div className="border-t border-border my-2" />
+                    <Button
+                      variant={currentPage === "dashboard" ? "secondary" : "ghost"}
+                      onClick={() => {
+                        onNavigate("dashboard");
+                        setMobileMenuOpen(false);
+                      }}
+                      className="justify-start"
+                    >
+                      <Package className="w-4 h-4 mr-2" />
+                      Mi Dashboard
+                    </Button>
                     <Button
                       variant={currentPage === "profile" ? "secondary" : "ghost"}
                       onClick={() => {

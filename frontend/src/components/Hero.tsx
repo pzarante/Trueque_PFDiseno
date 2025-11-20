@@ -1,10 +1,9 @@
-import { motion, useScroll, useTransform } from "motion/react";
+import { motion } from "motion/react";
 import { 
   ArrowRight, 
   Sparkles, 
   Users, 
   ShieldCheck, 
-  TrendingUp,
   Search,
   MessageSquare,
   CheckCircle,
@@ -15,14 +14,11 @@ import {
   Award,
   ArrowRightLeft,
   Rocket,
-  Target,
-  Trophy
+  Target
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { Card } from "./ui/card";
-import { useEffect, useState } from "react";
 import { useThemeColor, getGradientClasses, getShadowClasses, getAccentBgClasses, getAccentBorderClasses, getAccentTextClasses, getHeroBackgroundClasses, getHeroOrbColors, getParticleColor } from "../hooks/useThemeColor";
 import { ThemeColor } from "./ThemeColorPicker";
 
@@ -497,7 +493,7 @@ export function Hero({ onNavigate }: HeroProps) {
             </Button>
           </div>
           <p className="text-sm text-white/80 mt-6">
-            🎉 Los primeros 1000 usuarios obtienen insignia de Early Adopter
+            Los primeros 1000 usuarios obtienen insignia de Early Adopter
           </p>
         </motion.div>
       </section>
@@ -583,55 +579,6 @@ function FloatingParticles({ themeColor }: { themeColor: ThemeColor }) {
   );
 }
 
-// Floating Stat Card Component
-function FloatingStatCard({
-  icon,
-  label,
-  value,
-  gradient,
-  delay,
-  position,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  gradient: string;
-  delay: number;
-  position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-}) {
-  const positions = {
-    "top-left": "top-4 left-4",
-    "top-right": "-top-6 -right-6",
-    "bottom-left": "-bottom-6 -left-6",
-    "bottom-right": "bottom-4 right-4",
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.8 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.6, delay }}
-      whileHover={{ scale: 1.05, y: -5 }}
-      className={`absolute ${positions[position]} bg-white dark:bg-card rounded-2xl shadow-2xl p-4 border border-border backdrop-blur-sm z-20`}
-    >
-      <div className="flex items-center gap-3">
-        <motion.div
-          animate={{ rotate: [0, 5, -5, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className={`w-12 h-12 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center shadow-lg`}
-        >
-          {icon}
-        </motion.div>
-        <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="font-medium text-foreground">{value}</p>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// Animated Stats Bar
 function AnimatedStatsBar() {
   const { themeColor } = useThemeColor();
   const gradientClasses = getGradientClasses(themeColor);

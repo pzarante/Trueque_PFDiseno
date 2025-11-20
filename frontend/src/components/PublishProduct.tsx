@@ -14,7 +14,7 @@ import { toast } from "sonner@2.0.3";
 interface PublishProductProps {
   isOpen: boolean;
   onClose: () => void;
-  onPublish: (product: Omit<Product, "id">) => void;
+  onPublish: (product: Omit<Product, "id"> | Product, imageFiles?: File[]) => void;
   currentUser: any;
   editingProduct?: Product | null;
 }
@@ -66,6 +66,7 @@ export function PublishProduct({
   const [interestedInInput, setInterestedInInput] = useState("");
   const [interestedIn, setInterestedIn] = useState<string[]>([]);
   const [images, setImages] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { themeColor } = useThemeColor();
@@ -84,6 +85,7 @@ export function PublishProduct({
       setAvailable(editingProduct.available ?? true);
       setInterestedIn(editingProduct.interestedIn);
       setImages(editingProduct.images || [editingProduct.image]);
+      setImageFiles([]);
     } else {
       // Resetear cuando no hay producto en edición
       setTitle("");
@@ -95,6 +97,7 @@ export function PublishProduct({
       setAvailable(true);
       setInterestedIn([]);
       setImages([]);
+      setImageFiles([]);
     }
   }, [editingProduct, isOpen]);
 
@@ -131,6 +134,7 @@ export function PublishProduct({
           setImages((prev) => [...prev, result]);
         };
         reader.readAsDataURL(file);
+        setImageFiles((prev) => [...prev, file]);
       }
     });
 
@@ -148,6 +152,7 @@ export function PublishProduct({
 
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
+    setImageFiles(imageFiles.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,46 +174,49 @@ export function PublishProduct({
     
     setIsSubmitting(true);
 
-    // Simular delay de subida
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    if (editingProduct) {
-      // Si estamos editando, mantener el ID
-      const updatedProduct: Product = {
-        ...editingProduct,
-        title,
-        description,
-        category,
-        image: images[0],
-        images: images,
-        location: location + ", Colombia",
-        condition,
-        interestedIn: interestedIn.length > 0 ? interestedIn : ["Cualquier cosa"],
-        status,
-        available,
-      };
-      onPublish(updatedProduct);
-    } else {
-      // Si es nuevo, no incluir ID
-      const newProduct: Omit<Product, "id"> = {
-        title,
-        description,
-        category,
-        image: images[0],
-        images: images,
-        location: location + ", Colombia",
-        ownerName: currentUser?.name || "Usuario",
-        ownerUserId: currentUser?.id || "",
-        condition,
-        interestedIn: interestedIn.length > 0 ? interestedIn : ["Cualquier cosa"],
-        status,
-        available,
-        createdAt: new Date().toISOString(),
-      };
-      onPublish(newProduct);
+    try {
+      if (editingProduct) {
+        // Si estamos editando, mantener el ID
+        const updatedProduct: Product = {
+          ...editingProduct,
+          title,
+          description,
+          category,
+          image: images[0],
+          images: images,
+          location: location + ", Colombia",
+          condition,
+          interestedIn: interestedIn.length > 0 ? interestedIn : ["Cualquier cosa"],
+          status,
+          available,
+        };
+        onPublish(updatedProduct, imageFiles);
+      } else {
+        // Si es nuevo, no incluir ID
+        const newProduct: Omit<Product, "id"> = {
+          title,
+          description,
+          category,
+          image: images[0],
+          images: images,
+          location: location + ", Colombia",
+          ownerName: currentUser?.name || "Usuario",
+          ownerUserId: currentUser?.id || "",
+          condition,
+          interestedIn: interestedIn.length > 0 ? interestedIn : ["Cualquier cosa"],
+          status,
+          available,
+          createdAt: new Date().toISOString(),
+        };
+        onPublish(newProduct, imageFiles);
+      }
+    } catch (error) {
+      toast.error("Error al guardar producto", {
+        description: "No se pudo guardar el producto. Intenta nuevamente.",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setIsSubmitting(false);
   };
 
   if (!isOpen) return null;

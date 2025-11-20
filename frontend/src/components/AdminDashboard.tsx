@@ -293,7 +293,7 @@ export function AdminDashboard({
                         <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                           <span>{user.totalProducts} productos</span>
                           <span>{user.totalTrades} intercambios</span>
-                          <span>⭐ {user.rating}</span>
+                          <span>{user.rating} estrellas</span>
                         </div>
                       </div>
                     </div>
