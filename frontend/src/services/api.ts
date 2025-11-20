@@ -1,0 +1,253 @@
+const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL as string) || 'http://localhost:3000';
+
+// Helper para obtener el token del localStorage
+const getToken = (): string | null => {
+  return localStorage.getItem('token');
+};
+
+// Helper para hacer requests
+const request = async <T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> => {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Error desconocido' }));
+      throw new Error(error.message || error.error || `Error: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error: any) {
+    // Si es un error de red, proporcionar un mensaje más claro
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('No se pudo conectar con el servidor. Verifica que el backend esté corriendo en http://localhost:3000');
+    }
+    throw error;
+  }
+};
+
+const requestFormData = async <T>(
+  endpoint: string,
+  formData: FormData
+): Promise<T> => {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Error desconocido' }));
+      throw new Error(error.message || error.error || `Error: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error: any) {
+    if (error.name === 'TypeError' && (error.message.includes('fetch') || error.message.includes('Failed to fetch'))) {
+      throw new Error('No se pudo conectar con el servidor. Verifica que el backend esté corriendo en http://localhost:3000');
+    }
+    throw error;
+  }
+};
+
+// ==================== AUTENTICACIÓN ====================
+export const authAPI = {
+  register: async (data: {
+    name: string;
+    email: string;
+    password: string;
+    ciudad: string;
+  }) => {
+    return request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  login: async (email: string, password: string) => {
+    const response = await request<{ token?: string; message?: string; accessToken?: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    
+    // Si el backend devuelve un token o accessToken, guardarlo
+    if (response.token) {
+      localStorage.setItem('token', response.token);
+    } else if (response.accessToken) {
+      localStorage.setItem('token', response.accessToken);
+    }
+    
+    return response;
+  },
+
+  verify: async (email: string, code: string) => {
+    return request('/api/auth/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+  },
+
+  forgotPassword: async (email: string) => {
+    return request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  resetPassword: async (token: string, newPassword: string) => {
+    return request(`/api/auth/reset-password/${token}`, {
+      method: 'POST',
+      body: JSON.stringify({ newPassword }),
+    });
+  },
+};
+
+// ==================== USUARIOS ====================
+export const userAPI = {
+  getProfile: async () => {
+    // El backend usa el email del storeToken, así que solo necesitamos el token
+    return request('/api/users/profile');
+  },
+
+  updateProfile: async (data: {
+    name?: string;
+    ciudad?: string;
+    descripcion?: string;
+  }) => {
+    return request('/api/users/update', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deactivate: async () => {
+    return request('/api/users/deactivate', {
+      method: 'POST',
+    });
+  },
+
+  getProducts: async () => {
+    return request('/api/users/productos');
+  },
+
+  search: async (filters?: {
+    categoria?: string;
+    ubicacion?: string;
+    estado?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.categoria) params.append('categoria', filters.categoria);
+    if (filters?.ubicacion) params.append('ubicacion', filters.ubicacion);
+    if (filters?.estado) params.append('estado', filters.estado);
+    
+    const query = params.toString();
+    return request(`/api/users/search${query ? `?${query}` : ''}`);
+  },
+};
+
+// ==================== PRODUCTOS ====================
+export const productAPI = {
+  create: async (data: {
+    nombre: string;
+    categoria: string;
+    condicionesTrueque: string;
+    comentarioNLP: string;
+    ubicacion: string;
+    imagenes?: File[];
+  }) => {
+    const formData = new FormData();
+    formData.append('nombre', data.nombre);
+    formData.append('categoria', data.categoria);
+    formData.append('condicionesTrueque', data.condicionesTrueque);
+    formData.append('comentarioNLP', data.comentarioNLP);
+    formData.append('ubicacion', data.ubicacion);
+
+    if (data.imagenes) {
+      data.imagenes.forEach((image) => {
+        formData.append('imagenes', image);
+      });
+    }
+
+    return requestFormData('/api/products/OffertCreate', formData);
+  },
+
+  update: async (data: {
+    nombre: string;
+    categoria?: string;
+    condicionesTrueque?: string;
+    comentarioNLP?: string;
+    ubicacion?: string;
+  }) => {
+    return request('/api/products/OffertUpdate', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateStatus: async (nombre: string, estado: string) => {
+    return request('/api/products/EditEstado', {
+      method: 'PUT',
+      body: JSON.stringify({ nombre, estado }),
+    });
+  },
+
+  delete: async (nombre: string) => {
+    return request('/api/products/DelateOffert', {
+      method: 'DELETE',
+      body: JSON.stringify({ nombre }),
+    });
+  },
+
+  getImage: (filename: string) => {
+    return `${API_BASE_URL}/api/products/images/${filename}`;
+  },
+};
+
+// ==================== TRUEQUES ====================
+export const truequesAPI = {
+  propose: async (data: {
+    id_producto_oferente: string;
+    id_producto_destinatario: string;
+  }) => {
+    return request('/api/trueques/propose', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  confirm: async (tradeId: string, accion: 'aceptar' | 'rechazar') => {
+    return request(`/api/trueques/${tradeId}/confirm`, {
+      method: 'PUT',
+      body: JSON.stringify({ accion }),
+    });
+  },
+
+  getMyTrades: async (status?: string) => {
+    const query = status ? `?status=${status}` : '';
+    return request(`/api/trueques/my-trades${query}`);
+  },
+};
+

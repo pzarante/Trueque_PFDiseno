@@ -10,18 +10,17 @@ import { NotificationPanel } from "./components/NotificationPanel";
 import { Chat } from "./components/Chat";
 import { PublishProduct } from "./components/PublishProduct";
 import { AdminDashboard } from "./components/AdminDashboard";
+import { Dashboard } from "./components/Dashboard";
 import { SemanticSearch } from "./components/SemanticSearch";
 import { Recommendations } from "./components/Recommendations";
 import { Product } from "./components/ProductCard";
 import { Toaster } from "./components/ui/sonner";
-import { toast } from "sonner";
+import { toast } from "sonner@2.0.3";
 import { ThemeColor } from "./components/ThemeColorPicker";
 import { ThemeColorProvider } from "./hooks/useThemeColor";
-import { apiClient } from "./config/api";
-import React from "react";
+import { authAPI, userAPI, productAPI } from "./services/api";
 
-
-type Page = "home" | "login" | "register" | "marketplace" | "profile" | "admin" | "userProfile" | "semanticSearch" | "recommendations";
+type Page = "home" | "login" | "register" | "marketplace" | "profile" | "dashboard" | "admin" | "userProfile" | "semanticSearch" | "recommendations";
 
 export interface User {
   id: string;
@@ -113,7 +112,6 @@ const STORAGE_KEYS = {
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("home");
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [publishedProducts, setPublishedProducts] = useState<Product[]>([]);
@@ -193,19 +191,6 @@ export default function App() {
       document.documentElement.setAttribute("data-theme", "blue");
     }
   }, []);
-  
-  useEffect(() => {
-    const existingScript = document.querySelector(
-      'script[src="https://www.google.com/recaptcha/api.js"]'
-    );
-    if (!existingScript) {
-      const script = document.createElement("script");
-      script.src = "https://www.google.com/recaptcha/api.js";
-      script.async = true;
-      script.defer = true;
-      document.body.appendChild(script);
-    }
-  }, []);
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
@@ -252,6 +237,7 @@ export default function App() {
 
   const handleLogin = async (email: string, password: string, isAdmin: boolean) => {
     if (isAdmin) {
+      // Validar credenciales de administrador (mantener lógica local para admin)
       if (email === "admin@swaply.com" && password === "admin123") {
         const adminUser: User = {
           id: "admin",
@@ -276,31 +262,40 @@ export default function App() {
       }
     } else {
       try {
-        const response = await apiClient.post('/auth/login', { email, password });
+        const response = await authAPI.login(email, password);
         
-        setToken(response.token);
-        localStorage.setItem('token', response.token);
+        // Obtener perfil del usuario después del login
+        const profileResponse = await userAPI.getProfile();
+        const userData = profileResponse.data?.[0] || profileResponse;
         
-        const userData: User = {
-          id: response.user.id,
-          name: response.user.nombre,
-          email: response.user.email,
+        const loggedUser: User = {
+          id: userData._id || userData.id || Date.now().toString(),
+          name: userData.name || "Usuario",
+          email: userData.email || email,
           role: "user",
-          city: response.user.ciudad,
-          joinedDate: new Date().toISOString(),
+          city: userData.ciudad || userData.city || "Bogotá",
+          joinedDate: userData.fecha_creacion || userData.joinedDate || new Date().toISOString(),
           favorites: [],
           activities: [],
-          isActive: true,
+          isActive: userData.active !== false,
         };
         
-        setUser(userData);
+        if (!loggedUser.isActive) {
+          toast.error("Cuenta desactivada", {
+            description: "Esta cuenta ha sido desactivada. Contacta al administrador.",
+          });
+          return;
+        }
+        
+        setUser(loggedUser);
         setCurrentPage("marketplace");
-        toast.success("¡Bienvenido!", {
+        toast.success("¡Bienvenido de vuelta!", {
           description: "Has iniciado sesión exitosamente",
         });
       } catch (error: any) {
+        console.error("Error en login:", error);
         toast.error("Error al iniciar sesión", {
-          description: error.message,
+          description: error.message || "No se pudo conectar con el servidor. Verifica que el backend esté corriendo.",
         });
       }
     }
@@ -308,24 +303,23 @@ export default function App() {
 
   const handleRegister = async (name: string, email: string, password: string, city: string) => {
     try {
-      await apiClient.post('/auth/register', { name, email, password, city });
+      await authAPI.register({ name, email, password, ciudad: city });
       
       toast.success("¡Cuenta creada!", {
-        description: "Verifica tu email para activar tu cuenta",
+        description: "Por favor verifica tu correo electrónico para activar tu cuenta.",
       });
       
+      // Redirigir al login después del registro
       setCurrentPage("login");
     } catch (error: any) {
       toast.error("Error al registrar", {
-        description: error.message,
+        description: error.message || "No se pudo crear la cuenta",
       });
     }
   };
 
   const handleLogout = () => {
     setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
     setCurrentPage("home");
     toast.info("Sesión cerrada", {
       description: "Has cerrado sesión exitosamente",
@@ -371,23 +365,32 @@ export default function App() {
     setCurrentPage(page as Page);
   };
 
-  const handleDeleteProduct = (productId: string) => {
+  const handleDeleteProduct = async (productId: string) => {
     const product = publishedProducts.find(p => p.id === productId);
-    setPublishedProducts(publishedProducts.filter(p => p.id !== productId));
-    toast.success("Producto eliminado", {
-      description: "El producto ha sido eliminado del sistema",
-    });
-    
-    if (user && product) {
-      const activity: Activity = {
-        id: Date.now().toString(),
-        type: "product",
-        title: "Producto eliminado",
-        description: `Eliminaste "${product.title}"`,
-        date: new Date().toISOString(),
-        productId: productId,
-      };
-      addActivity(user.id, activity);
+    if (!product) return;
+
+    try {
+      await productAPI.delete(product.title);
+      setPublishedProducts(publishedProducts.filter(p => p.id !== productId));
+      toast.success("Producto eliminado", {
+        description: "El producto ha sido eliminado del sistema",
+      });
+      
+      if (user) {
+        const activity: Activity = {
+          id: Date.now().toString(),
+          type: "product",
+          title: "Producto eliminado",
+          description: `Eliminaste "${product.title}"`,
+          date: new Date().toISOString(),
+          productId: productId,
+        };
+        addActivity(user.id, activity);
+      }
+    } catch (error: any) {
+      toast.error("Error al eliminar producto", {
+        description: error.message || "No se pudo eliminar el producto",
+      });
     }
   };
 
@@ -472,7 +475,7 @@ export default function App() {
     const newNotification: Notification = {
       id: Date.now().toString(),
       type: "trade_request",
-      title: "🔄 Nueva propuesta de intercambio",
+      title: "Nueva propuesta de intercambio",
       description: notificationDescription,
       time: "Ahora",
       read: false,
@@ -521,7 +524,7 @@ export default function App() {
     const acceptNotification: Notification = {
       id: Date.now().toString(),
       type: "trade_accepted",
-      title: "✅ ¡Propuesta aceptada!",
+      title: "Propuesta aceptada",
       description: product1 && product2 
         ? `${user.name} aceptó tu propuesta de intercambiar "${product1.title}" por "${product2.title}"`
         : "Tu propuesta de intercambio fue aceptada",
@@ -577,7 +580,7 @@ export default function App() {
     const rejectNotification: Notification = {
       id: Date.now().toString(),
       type: "trade_rejected",
-      title: "❌ Propuesta rechazada",
+      title: "Propuesta rechazada",
       description: product1 && product2 
         ? `${user.name} rechazó tu propuesta de intercambiar "${product1.title}" por "${product2.title}"`
         : "Tu propuesta de intercambio fue rechazada",
@@ -633,7 +636,7 @@ export default function App() {
     const cancelNotification: Notification = {
       id: Date.now().toString(),
       type: "trade_cancelled",
-      title: "🚫 Propuesta cancelada",
+      title: "Propuesta cancelada",
       description: product1 && product2 
         ? `${user.name} canceló su propuesta de intercambiar "${product1.title}" por "${product2.title}"`
         : "Una propuesta de intercambio fue cancelada",
@@ -689,7 +692,7 @@ export default function App() {
     const completedNotification: Notification = {
       id: Date.now().toString(),
       type: "achievement",
-      title: "🎉 ¡Intercambio completado!",
+      title: "Intercambio completado",
       description: product1 && product2 
         ? `Intercambio completado: "${product1.title}" por "${product2.title}"`
         : "¡Has completado un intercambio exitosamente!",
@@ -714,50 +717,89 @@ export default function App() {
     });
   };
 
-  const handlePublishProduct = (product: Omit<Product, "id"> | Product) => {
-    // Si el producto tiene id, es una edición
-    if ('id' in product && product.id) {
-      handleUpdateProduct(product as Product);
-      setIsPublishModalOpen(false);
-      setEditingProduct(null);
+  const handlePublishProduct = async (product: Omit<Product, "id"> | Product, imageFiles?: File[]) => {
+    if (!user) {
+      toast.error("Error", {
+        description: "Debes iniciar sesión para publicar productos",
+      });
       return;
     }
-    
-    const newProduct: Product = {
-      ...product,
-      id: Date.now().toString(),
-      ownerUserId: user?.id || "",
-      ownerName: user?.name || "Usuario",
-      createdAt: new Date().toISOString(),
-    };
-    setPublishedProducts([newProduct, ...publishedProducts]);
-    setIsPublishModalOpen(false);
-    setEditingProduct(null);
-    
-    if (product.status === "published") {
-      toast.success("¡Producto publicado!", {
-        description: "Tu producto ya está visible en el marketplace",
+
+    try {
+      // Si el producto tiene id, es una edición
+      if ('id' in product && product.id) {
+        // Actualizar producto existente
+        await productAPI.update({
+          nombre: product.title,
+          categoria: product.category,
+          condicionesTrueque: product.interestedIn?.join(", ") || "Cualquier cosa",
+          comentarioNLP: product.description,
+          ubicacion: product.location.replace(", Colombia", ""),
+        });
+        
+        handleUpdateProduct(product as Product);
+        setIsPublishModalOpen(false);
+        setEditingProduct(null);
+        toast.success("Producto actualizado", {
+          description: "Los cambios se han guardado exitosamente",
+        });
+        return;
+      }
+      
+      // Crear nuevo producto
+      if (!imageFiles || imageFiles.length === 0) {
+        toast.error("Error", {
+          description: "Debes subir al menos una imagen",
+        });
+        return;
+      }
+
+      const response = await productAPI.create({
+        nombre: product.title,
+        categoria: product.category,
+        condicionesTrueque: product.interestedIn?.join(", ") || "Cualquier cosa",
+        comentarioNLP: product.description,
+        ubicacion: product.location.replace(", Colombia", ""),
+        imagenes: imageFiles,
       });
-    } else if (product.status === "draft") {
-      toast.success("Borrador guardado", {
-        description: "Tu producto se ha guardado como borrador",
-      });
-    }
-    
-    // Add notification
-    const newNotification: Notification = {
-      id: Date.now().toString(),
-      type: "product",
-      title: product.status === "published" ? "Producto publicado exitosamente" : "Borrador guardado",
-      description: `${product.title} ${product.status === "published" ? "ya está disponible para intercambio" : "se guardó como borrador"}`,
-      time: "Ahora",
-      read: false,
-      productId: newProduct.id,
-    };
-    setNotifications([newNotification, ...notifications]);
-    
-    // Add activity
-    if (user) {
+      
+      console.log("Producto creado:", response);
+
+      const newProduct: Product = {
+        ...product,
+        id: Date.now().toString(),
+        ownerUserId: user.id,
+        ownerName: user.name,
+        createdAt: new Date().toISOString(),
+      };
+      
+      setPublishedProducts([newProduct, ...publishedProducts]);
+      setIsPublishModalOpen(false);
+      setEditingProduct(null);
+      
+      if (product.status === "published") {
+        toast.success("¡Producto publicado!", {
+          description: "Tu producto ya está visible en el marketplace",
+        });
+      } else if (product.status === "draft") {
+        toast.success("Borrador guardado", {
+          description: "Tu producto se ha guardado como borrador",
+        });
+      }
+      
+      // Add notification
+      const newNotification: Notification = {
+        id: Date.now().toString(),
+        type: "product",
+        title: product.status === "published" ? "Producto publicado exitosamente" : "Borrador guardado",
+        description: `${product.title} ${product.status === "published" ? "ya está disponible para intercambio" : "se guardó como borrador"}`,
+        time: "Ahora",
+        read: false,
+        productId: newProduct.id,
+      };
+      setNotifications([newNotification, ...notifications]);
+      
+      // Add activity
       const activity: Activity = {
         id: Date.now().toString(),
         type: "product",
@@ -767,6 +809,11 @@ export default function App() {
         productId: newProduct.id,
       };
       addActivity(user.id, activity);
+    } catch (error: any) {
+      console.error("Error al guardar producto:", error);
+      toast.error("Error al guardar producto", {
+        description: error.message || "No se pudo guardar el producto. Verifica que el backend esté corriendo en http://localhost:3000",
+      });
     }
   };
 
@@ -889,6 +936,13 @@ export default function App() {
             onToggleTheme={toggleTheme}
             themeColor={themeColor}
             onColorChange={handleColorChange}
+          />
+        )}
+        {currentPage === "dashboard" && user && (
+          <Dashboard
+            user={user}
+            onViewProduct={handleViewProduct}
+            themeColor={themeColor}
           />
         )}
         {currentPage === "userProfile" && viewingUser && (

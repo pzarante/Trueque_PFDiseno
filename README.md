@@ -1,11 +1,41 @@
 # Trueque_PFDiseño
 
-  # Swaply Web App
+## Instalación
 
-  This is a code bundle for Swaply Web App. The original project is available at https://www.figma.com/design/WHaIm6POAzM0BgDtEzlUof/Swaply-Web-App.
+### Frontend
+```
+cd frontend
+npm install
+```
 
-  ## Running the code
+### Backend
+```
+cd backend
+npm install
+```
 
-  Run `npm i` to install the dependencies.
+### Modelo NLP
+```
+cd modelo_NLP
+pip install -r requirements.txt
+```
 
-  Run `npm run dev` to start the development server.
+## Ejecución
+
+### Frontend
+```
+cd frontend
+npm run dev
+```
+
+### Backend
+```
+cd backend
+npm run dev
+```
+
+### Modelo NLP
+```
+cd modelo_NLP
+python app.py
+```

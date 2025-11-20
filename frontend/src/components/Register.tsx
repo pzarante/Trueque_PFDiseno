@@ -1,19 +1,14 @@
 import { motion } from "motion/react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { ArrowRightLeft } from "lucide-react";
 import { ThemeColor } from "./ThemeColorPicker";
-import {
-  useThemeColor,
-  getGradientClasses,
-  getShadowClasses,
-  getTextClasses,
-} from "../hooks/useThemeColor";
+import { useThemeColor, getGradientClasses, getShadowClasses, getTextClasses } from "../hooks/useThemeColor";
 
 interface RegisterProps {
-  onRegister: (name: string, email: string, password: string, city: string, token: string) => void;
+  onRegister: (name: string, email: string, password: string, city: string) => void;
   onNavigate: (page: string) => void;
 }
 
@@ -22,57 +17,17 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
   const gradientClasses = getGradientClasses(themeColor);
   const shadowClasses = getShadowClasses(themeColor);
   const textClasses = getTextClasses(themeColor);
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [city, setCity] = useState("");
 
-  // Cargar reCAPTCHA
-  useEffect(() => {
-  const existing = document.querySelector("script[src*='recaptcha']");
-  if (!existing) {
-    const script = document.createElement("script");
-    script.src = "https://www.google.com/recaptcha/api.js";
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-  }
-}, []);
-
-  useEffect(() => {
-  // Forzar render si el script ya estaba cargado
-  setTimeout(() => {
-    // @ts-ignore
-    if (window.grecaptcha && document.querySelector(".g-recaptcha")) {
-      // @ts-ignore
-      window.grecaptcha.render(document.querySelector(".g-recaptcha"), {
-        sitekey: import.meta.env.VITE_RECAPTCHA_SITE_KEY,
-      });
-    }
-  }, 500);
-}, []);
-
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const token = (window as any).grecaptcha?.getResponse();
-    if (!token) {
-      alert("Por favor, completa el reCAPTCHA antes de continuar.");
-      return;
-    }
-    
-    
-    await fetch("http://localhost:3000/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, city,  captchaToken: token }),
-    });
-
-    onRegister(name, email, password, city, token);
+    onRegister(name, email, password, city);
   };
 
+  // Definir colores de las animaciones según el tema
   const getAnimationGradient = () => {
     const gradients: Record<ThemeColor, { primary: string; secondary: string }> = {
       blue: { primary: "from-blue-400 to-cyan-400", secondary: "from-cyan-500 to-blue-600" },
@@ -88,21 +43,34 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
 
   return (
     <div className="min-h-screen pt-16 flex items-center justify-center px-4">
-      {/* Fondo animado */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100 dark:from-[#0a1628] dark:via-[#0d1f38] dark:to-[#0a1628]" />
-
+      
+      {/* Animated Background */}
       <motion.div
-        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.3, 0.6, 0.3],
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
         className={`absolute top-20 right-20 w-72 h-72 bg-gradient-to-br ${animGradients.primary} rounded-full blur-3xl opacity-30`}
       />
       <motion.div
-        animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.6, 0.3] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        animate={{
+          scale: [1.2, 1, 1.2],
+          opacity: [0.3, 0.6, 0.3],
+        }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
         className={`absolute bottom-20 left-20 w-96 h-96 bg-gradient-to-br ${animGradients.secondary} rounded-full blur-3xl opacity-20`}
       />
 
-      {/* Contenedor principal */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -110,7 +78,7 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
         className="relative w-full max-w-md"
       >
         <div className="bg-card border border-border rounded-2xl shadow-xl p-8">
-          {/* Encabezado */}
+          {/* Logo */}
           <div className="flex flex-col items-center mb-8">
             <motion.div
               animate={{ rotate: [0, 360] }}
@@ -121,11 +89,10 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
             </motion.div>
             <h2 className="text-2xl">Crear Cuenta</h2>
             <p className="text-muted-foreground mt-2">
-              Únete a la comunidad de <span className="text-primary font-medium">Swaply</span>
+              Únete a la comunidad de Swaply
             </p>
           </div>
 
-          {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="name">Nombre Completo</Label>
@@ -136,6 +103,7 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                className="bg-input-background"
               />
             </div>
 
@@ -148,6 +116,7 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="bg-input-background"
               />
             </div>
 
@@ -160,6 +129,7 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="bg-input-background"
               />
             </div>
 
@@ -172,27 +142,18 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 required
+                className="bg-input-background"
               />
             </div>
 
-            {/* Captcha  */}
-            <div className="flex justify-center mt-4">
-  <div
-    className="g-recaptcha"
-    data-sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-  ></div>
-</div>
-
-
             <Button
               type="submit"
-              className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses} mt-6`}
+              className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses}`}
             >
               Crear Cuenta
             </Button>
           </form>
 
-          {/* Enlace login */}
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
               ¿Ya tienes cuenta?{" "}
