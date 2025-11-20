@@ -8,6 +8,7 @@ import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import productRoutes from './routes/offertsRoutes.js';
+import truequesRoutes from './routes/truequesRoutes.js';
 
 dotenv.config();
 
@@ -820,11 +821,18 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/trueques', truequesRoutes);
 
 app.get('/', (req, res) => {
   res.json({ 
     message: 'API Trueque funcionando',
     documentation: `http://localhost:${PORT}/api-docs`
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users', 
+      products: '/api/products',
+      trueques: '/api/trueques' 
+    }
   });
 });
 

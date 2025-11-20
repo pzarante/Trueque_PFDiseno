@@ -14,10 +14,12 @@ import { SemanticSearch } from "./components/SemanticSearch";
 import { Recommendations } from "./components/Recommendations";
 import { Product } from "./components/ProductCard";
 import { Toaster } from "./components/ui/sonner";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { ThemeColor } from "./components/ThemeColorPicker";
 import { ThemeColorProvider } from "./hooks/useThemeColor";
 import { apiClient } from "./config/api";
+import React from "react";
+
 
 type Page = "home" | "login" | "register" | "marketplace" | "profile" | "admin" | "userProfile" | "semanticSearch" | "recommendations";
 
@@ -189,6 +191,19 @@ export default function App() {
       document.documentElement.setAttribute("data-theme", savedColor);
     } else {
       document.documentElement.setAttribute("data-theme", "blue");
+    }
+  }, []);
+  
+  useEffect(() => {
+    const existingScript = document.querySelector(
+      'script[src="https://www.google.com/recaptcha/api.js"]'
+    );
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.src = "https://www.google.com/recaptcha/api.js";
+      script.async = true;
+      script.defer = true;
+      document.body.appendChild(script);
     }
   }, []);
 

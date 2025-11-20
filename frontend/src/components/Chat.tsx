@@ -30,6 +30,7 @@ interface ChatProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: any;
+   targetUserId: string | null;
 }
 
 const MOCK_CONVERSATIONS: Conversation[] = [
@@ -102,7 +103,7 @@ const MOCK_MESSAGES: Message[] = [
   },
 ];
 
-export function Chat({ isOpen, onClose, currentUser }: ChatProps) {
+export function Chat({ isOpen, onClose, currentUser, targetUserId }: ChatProps) {
   const { themeColor } = useThemeColor();
   const gradientClasses = getGradientClasses(themeColor);
   const accentBgClasses = getAccentBgClasses(themeColor);
