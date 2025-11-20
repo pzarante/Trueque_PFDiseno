@@ -73,7 +73,11 @@ export const login = async (req, res) => {
         setAccessToken(accessToken);
         setEmail(email);
         res.status(201).json({
-        message: 'Credenciales correctas. Iniciando Sesion'});
+            message: 'Credenciales correctas. Iniciando Sesion',
+            token: accessToken,
+            accessToken: accessToken,
+            refreshToken: refre
+        });
     }catch (error) {
         console.error("Error al  iniciar sesion del usuario:", error.response?.data || error.message);
         const er_data = error.response?.data
