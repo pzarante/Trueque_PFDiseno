@@ -2,21 +2,11 @@ import axios from 'axios';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { setAccessToken,setRefreshToken,setEmail} from './storeToken.js';
-//import { validateRecaptcha } from "../recaptcha/recaptcha.service.js";
 
 export const register = async (req, res) => {
   try {
     const { name, email, password, ciudad } = req.body;
 
-    /*try {
-      await validateRecaptcha(token);
-      console.log(" reCAPTCHA validado correctamente");
-    } catch (err) {
-      console.error(" Error al validar reCAPTCHA:", err.message);
-      return res.status(403).json({ error: "Captcha inválido o expirado" });
-    }*/
-
-    
     const authRes = await axios.post(
       'https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/signup',
       {
@@ -61,7 +51,7 @@ export const register = async (req, res) => {
       message: 'Usuario registrado exitosamente en ROBLE y en la base de datos personalizada.',
     });
   } catch (error) {
-    console.error('❌ Error al registrar usuario:', error.response?.data || error.message);
+    console.error('Error al registrar usuario:', error.response?.data || error.message);
     res.status(500).json({
       error: 'Error al registrar usuario',
       detalles: error.response?.data || error.message,
@@ -85,7 +75,7 @@ export const login = async (req, res) => {
         res.status(201).json({
         message: 'Credenciales correctas. Iniciando Sesion'});
     }catch (error) {
-        console.error("❌ Error al  iniciar sesion del usuario:", error.response?.data || error.message);
+        console.error("Error al  iniciar sesion del usuario:", error.response?.data || error.message);
         const er_data = error.response?.data
         const er_mes = error.message
         res.status(500).json({ error: 'Error al  iniciar sesion del usuario',er_data, er_mes });
@@ -130,7 +120,7 @@ export const verifyEmail = async (req, res) => {
     });
 
     }catch (error) {
-        console.error("❌ Error al verificar usuario:", error.response?.data || error.message);
+        console.error("Error al verificar usuario:", error.response?.data || error.message);
         const er_data = error.response?.data
         const er_mes = error.message
         res.status(500).json({ error: 'Error al registrar usuario',er_data, er_mes });
@@ -149,7 +139,7 @@ export const forgotPassword = async (req, res) => {
    res.json('Se ha enviado información a tu correo' );
    console.log(forgot.resetToken);
     }catch (error) {
-        console.error("❌ Error al procesar recuperación de contraseña", error.response?.data || error.message);
+        console.error("Error al procesar recuperación de contraseña", error.response?.data || error.message);
         const er_data = error.response?.data
         const er_mes = error.message
         res.status(500).json({ error: 'Error al procesar recuperación de contraseña',er_data, er_mes  });
@@ -169,7 +159,7 @@ try{
         newPassword: newPassword
       });
 }catch(error){
-    console.error("❌ Error al restaurar la contraseña", error.response?.data || error.message);
+    console.error("Error al restaurar la contraseña", error.response?.data || error.message);
     const er_data = error.response?.data
     const er_mes = error.message
     res.status(500).json({ error: 'Error al restaurar la contraseña',er_data, er_mes  });

@@ -87,7 +87,7 @@ export const createTradeProposal = async (req, res) => {
       data: tradeProposal.data
     });
   } catch (error) {
-    console.error("❌ Error al crear propuesta de trueque:", error.response?.data || error.message);
+    console.error("Error al crear propuesta de trueque:", error.response?.data || error.message);
     res.status(500).json({
       error: "Error al crear propuesta de trueque",
       detalles: error.response?.data || error.message,

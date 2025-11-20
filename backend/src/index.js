@@ -826,7 +826,7 @@ app.use('/api/trueques', truequesRoutes);
 app.get('/', (req, res) => {
   res.json({ 
     message: 'API Trueque funcionando',
-    documentation: `http://localhost:${PORT}/api-docs`
+    documentation: `http://localhost:${PORT}/api-docs`,
     endpoints: {
       auth: '/api/auth',
       users: '/api/users', 
