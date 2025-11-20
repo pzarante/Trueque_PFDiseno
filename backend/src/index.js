@@ -427,11 +427,119 @@ const swaggerSpec = {
       }
     },
 
+    '/api/users/productos': {
+      get: {
+        summary: 'Obtener productos del usuario actual',
+        description: 'Devuelve todos los productos creados por el usuario autenticado',
+        tags: ['Usuarios'],
+        responses: {
+          '200': { 
+            description: 'Productos del usuario obtenidos con éxito.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { 
+                      type: 'string',
+                      example: 'Productos del usuario obtenidos con éxito.'
+                    },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          _id: { type: 'string' },
+                          nombre: { type: 'string' },
+                          categoria: { type: 'string' },
+                          estado: { type: 'string' },
+                          ubicacion: { type: 'string' },
+                          fechaCreacion: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '500': {
+            description: 'Error del servidor'
+          }
+        }
+      }
+    },
+
+    '/api/users/search': {
+      get: {
+        summary: 'Buscar productos con filtros',
+        description: 'Busca productos aplicando filtros de categoría, ubicación y estado',
+        tags: ['Usuarios'],
+        parameters: [
+          {
+            name: 'categoria',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string'
+            },
+            description: 'Filtrar por categoría específica'
+          },
+          {
+            name: 'ubicacion',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string'
+            },
+            description: 'Filtrar por ubicación específica'
+          },
+          {
+            name: 'estado',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              enum: ['borrador', 'publicado', 'pausado', 'completado']
+            },
+            description: 'Filtrar por estado del producto'
+          }
+        ],
+        responses: {
+          '200': { 
+            description: 'Productos obtenidos con éxito.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { 
+                      type: 'string',
+                      example: 'Productos obtenidos con éxito.'
+                    },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object'
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '500': {
+            description: 'Error del servidor'
+          }
+        }
+      }
+    },
+
     // ==================== PRODUCTOS ====================
     '/api/products/OffertCreate': {
       post: {
         summary: 'Crear nuevo producto para trueque',
-        description: 'Crea un nuevo producto con hasta 3 imágenes. Las imágenes se guardan como JSON stringificado',
+        description: 'Crea un nuevo producto con hasta 3 imágenes. Valida que no exista un producto con el mismo nombre para el usuario',
         tags: ['Productos'],
         requestBody: {
           required: true,
@@ -444,7 +552,7 @@ const swaggerSpec = {
                   nombre: { 
                     type: 'string',
                     example: 'Asador de carne',
-                    description: 'Nombre del producto'
+                    description: 'Nombre único del producto para este usuario'
                   },
                   categoria: { 
                     type: 'string',
@@ -498,7 +606,7 @@ const swaggerSpec = {
             }
           },
           '400': {
-            description: 'Faltan campos obligatorios o demasiadas imágenes'
+            description: 'Faltan campos obligatorios, demasiadas imágenes o ya existe un producto con ese nombre'
           },
           '500': {
             description: 'Error del servidor'
@@ -510,7 +618,7 @@ const swaggerSpec = {
     '/api/products/OffertUpdate': {
       put: {
         summary: 'Actualizar producto existente',
-        description: 'Modifica la información de un producto existente',
+        description: 'Modifica la información de un producto existente del usuario',
         tags: ['Productos'],
         requestBody: {
           required: true,
@@ -522,7 +630,7 @@ const swaggerSpec = {
                   nombre: { 
                     type: 'string',
                     example: 'Asador de carne actualizado',
-                    description: 'Nuevo nombre del producto'
+                    description: 'Nombre del producto a actualizar'
                   },
                   categoria: { 
                     type: 'string',
@@ -695,7 +803,6 @@ const swaggerSpec = {
     }
   }
 };
-
 // RUTA DE SWAGGER 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
