@@ -84,13 +84,26 @@ def create_app():
     from app.modules.semantic_search import semantic_search
     from app.modules.bulk_insert import bulk_insert
     from app.modules.recommendations import recommendations
+<<<<<<< HEAD
     from app.modules.messages import messages
+=======
+    from app.modules.register_consult import register_consult
+    from app.modules.bulk_history import bulk_history
+    from app.modules.evaluate_bp import evaluate_bp
+>>>>>>> modelo_NLP_bemontoya
 
     app.register_blueprint(process_offer)
     app.register_blueprint(semantic_search)
     app.register_blueprint(recommendations)
     app.register_blueprint(bulk_insert)
+<<<<<<< HEAD
     app.register_blueprint(messages)
+=======
+    app.register_blueprint(register_consult)
+    app.register_blueprint(bulk_history)
+    app.register_blueprint(evaluate_bp)
+
+>>>>>>> modelo_NLP_bemontoya
     
     print("Aplicación Flask configurada correctamente")
     return app

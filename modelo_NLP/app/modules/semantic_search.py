@@ -14,7 +14,6 @@ def search_offers():
         return jsonify({"error": "Parámetro 'query' es obligatorio"}), 400
     
     clear_query = clean_text(query_text)
-
     query_embedding = text_to_embeddings(clear_query)
 
     # Para filtros combinados
@@ -23,27 +22,44 @@ def search_offers():
     if category:
         results = current_app.collection.query(
             query_embeddings=[query_embedding],
-            n_results=n,
+            n_results=n*2,
             where=where_filter
         )
     else:
         results = current_app.collection.query(
+<<<<<<< HEAD
             query_embeddings=[query_embedding],
             n_results=n
+=======
+            query_embeddings=query_embedding,
+            n_results=n*2
+>>>>>>> modelo_NLP_bemontoya
         )
 
-    offers = []
+    # PROCESAR: combinar por offer_id
+    offer_scores = {}
     for i, meta in enumerate(results["metadatas"][0]):
         offer_id = meta["offer_id"]
         tipo = meta.get("type", "")
         distance = results["distances"][0][i]
         score = max(0.0, 1.0 - distance / 2.0)  # similitud coseno aproximada
 
-        offers.append({
-            "offer_id": offer_id,
-            "type": tipo,
-            "category": meta.get("category", ""),
-            "score": score
-        })
+        if offer_id not in offer_scores or score > offer_scores[offer_id]["score"]:
+            offer_scores[offer_id] = {
+                "offer_id": offer_id,
+                "type": tipo,
+                "category": meta.get("category", ""),
+                "score": score
+            }
+    
+    # Convertir a lista y tomar top N final
+    final_results = sorted(
+        offer_scores.values(),
+        key=lambda x: x["score"],
+        reverse=True
+    )[:n]
 
-    return jsonify({"results":offers})
+    return jsonify({
+        "query": query_text,
+        "results": final_results
+    }), 200
