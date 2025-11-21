@@ -8,9 +8,9 @@ RUN npm ci
 
 COPY . .
 
-RUN npm run build
-
+# Exponer puerto 3000 (Vite mapeado a 3000 en docker-compose)
 EXPOSE 3000
 
-# Usa npx para ejecutar vite directamente
+# Para desarrollo: usar vite dev server
+# Para producción: hacer build y servir con nginx (ver Dockerfile.prod)
 CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "3000"]

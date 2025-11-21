@@ -1,35 +1,28 @@
-# Python
 __pycache__
 *.pyc
 *.pyo
 *.pyd
-*.pkl
+.Python
+env
+venv
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
 *.log
-
-# Entornos virtuales
-venv/
-env/
-.venv/
-
-# Git
 .git
 .gitignore
-
-# Entornos y secrets
-.env
-*.en
-
-# IDE
-.vscode/
-.idea/
+.DS_Store
 *.swp
 *.swo
-
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
-
-# Sistema
-.DS_Store
-Thumbs.db
+*~
+.vscode
+.idea
+chroma_db/*
+!chroma_db/.gitkeep

@@ -1,0 +1,107 @@
+version: '3.8'
+
+# Configuración Docker Compose para Trueque
+# Uso: docker-compose up -d
+# Para más información, ver README.DOCKER.md
+
+services:
+  # Modelo NLP - Python Flask
+  # Nota: El modelo NLP usa Supabase, que es el backend que usa ROBLE
+  modelo-nlp:
+    build:
+      context: ./modelo_NLP
+      dockerfile: Dockerfile
+    container_name: trueque-nlp
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      # Supabase credentials (ROBLE usa Supabase como backend)
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - CHROMA_PERSIST_DIR=/app/chroma_db
+    volumes:
+      - nlp_chroma_db:/app/chroma_db
+    networks:
+      - trueque-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Backend - Node.js Express
+  backend:
+    build:
+      context: ./backend
+      dockerfile: DockerFile
+    container_name: trueque-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - NLP_MODEL_URL=http://modelo-nlp:5000
+      # ROBLE Configuration - Backend usa ROBLE directamente via API
+      - ROBLE_API_URL=${ROBLE_API_URL:-https://roble-api.openlab.uninorte.edu.co}
+      - ROBLE_PROJECT_ID=${ROBLE_PROJECT_ID:-trueque_pfdiseno_b28d4fbe65}
+      - ROBLE_ADMIN_EMAIL=${ROBLE_ADMIN_EMAIL:-admin@swaply.com}
+      - ROBLE_ADMIN_PASSWORD=${ROBLE_ADMIN_PASSWORD}
+      # Otras configuraciones
+      - JWT_SECRET=${JWT_SECRET}
+      - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+    volumes:
+      - backend_uploads:/app/src/uploads
+    networks:
+      - trueque-network
+    depends_on:
+      modelo-nlp:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend - React + Vite
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost:3000
+    container_name: trueque-frontend
+    ports:
+      - "5173:3000"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:3000
+      - NODE_ENV=development
+    networks:
+      - trueque-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+networks:
+  trueque-network:
+    driver: bridge
+
+volumes:
+  nlp_chroma_db:
+    driver: local
+  backend_uploads:
+    driver: local
+

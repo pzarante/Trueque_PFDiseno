@@ -821,8 +821,20 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 
 // Middlewares
+const allowedOrigins = process.env.FRONTEND_URL 
+  ? [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000']
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: function (origin, callback) {
+    // Permitir requests sin origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Permitir todos por ahora, ajustar en producción
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -837,6 +849,15 @@ app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/trueques', truequesRoutes);
 app.use('/api/ratings', ratingsRoutes);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    service: 'backend'
+  });
+});
 
 app.get('/', (req, res) => {
   res.json({ 

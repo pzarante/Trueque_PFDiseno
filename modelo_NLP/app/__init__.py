@@ -70,6 +70,15 @@ def create_app():
         print(f"Advertencia: No se pudo inicializar ChromaDB al inicio: {e}")
         print("Se intentará inicializar en la primera solicitud")
 
+    # Health check endpoint
+    @app.route('/health', methods=['GET'])
+    def health_check():
+        return {
+            'status': 'OK',
+            'timestamp': __import__('datetime').datetime.now().isoformat(),
+            'service': 'modelo-nlp'
+        }, 200
+
     # Registrar blueprints
     from app.modules.process_offer import process_offer
     from app.modules.semantic_search import semantic_search

@@ -1,20 +1,19 @@
-FROM node:20-alpine AS builder
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
 FROM node:20-alpine
 WORKDIR /app
 
+# Copiar archivos de dependencias
 COPY package*.json ./
-RUN npm ci --omit=dev
 
-COPY --from=builder /app/dist ./dist
+# Instalar dependencias
+RUN npm ci --only=production
+
+# Copiar código fuente
+COPY . .
+
+# Crear directorio para uploads
+RUN mkdir -p /app/src/uploads
 
 EXPOSE 3000
 
-CMD ["node", "dist/index.js"]
+# Usar nodemon en desarrollo o node en producción
+CMD ["node", "src/index.js"]
