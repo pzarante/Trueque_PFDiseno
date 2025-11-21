@@ -18,7 +18,7 @@ export interface Product {
   ownerUserId: string;
   condition: "Nuevo" | "Como Nuevo" | "Bueno" | "Usado";
   interestedIn: string[];
-  status: "draft" | "published" | "paused";
+  status: "Borrador" | "Publicada" | "Pausada";
   available: boolean;
   createdAt: string;
 }

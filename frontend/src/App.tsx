@@ -18,7 +18,7 @@ import { SemanticSearch } from "./components/SemanticSearch";
 import { Recommendations } from "./components/Recommendations";
 import { Product } from "./components/ProductCard";
 import { Toaster } from "./components/ui/sonner";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { ThemeColor } from "./components/ThemeColorPicker";
 import { ThemeColorProvider } from "./hooks/useThemeColor";
 import { useAuth } from "./hooks/useAuth";
@@ -1005,6 +1005,7 @@ export default function App() {
         comentarioNLP: product.description,
         ubicacion: product.location.replace(", Colombia", ""),
         imagenes: imageFiles,
+        estado: product.status,
       });
       
       console.log("Producto creado:", response);
@@ -1021,11 +1022,11 @@ export default function App() {
       setIsPublishModalOpen(false);
       setEditingProduct(null);
       
-      if (product.status === "published") {
+      if (product.status === "Publicada") {
         toast.success("¡Producto publicado!", {
           description: "Tu producto ya está visible en el marketplace",
         });
-      } else if (product.status === "draft") {
+      } else if (product.status === "Borrador") {
         toast.success("Borrador guardado", {
           description: "Tu producto se ha guardado como borrador",
         });
@@ -1035,8 +1036,8 @@ export default function App() {
       const newNotification: Notification = {
         id: Date.now().toString(),
         type: "product",
-        title: product.status === "published" ? "Producto publicado exitosamente" : "Borrador guardado",
-        description: `${product.title} ${product.status === "published" ? "ya está disponible para intercambio" : "se guardó como borrador"}`,
+        title: product.status === "Publicada" ? "Producto publicado exitosamente" : "Borrador guardado",
+        description: `${product.title} ${product.status === "Publicada" ? "ya está disponible para intercambio" : "se guardó como borrador"}`,
         time: "Ahora",
         read: false,
         productId: newProduct.id,
@@ -1047,8 +1048,8 @@ export default function App() {
       const activity: Activity = {
         id: Date.now().toString(),
         type: "product",
-        title: product.status === "published" ? "Nuevo producto publicado" : "Borrador guardado",
-        description: `${product.status === "published" ? "Publicaste" : "Guardaste"} "${product.title}"`,
+        title: product.status === "Publicada" ? "Nuevo producto publicado" : "Borrador guardado",
+        description: `${product.status === "Publicada" ? "Publicaste" : "Guardaste"} "${product.title}"`,
         date: new Date().toISOString(),
         productId: newProduct.id,
       };
@@ -1290,7 +1291,7 @@ export default function App() {
             isFavorited={user.favorites.includes(selectedProduct.id)}
             onToggleFavorite={handleToggleFavorite}
             onUpdateProduct={handleUpdateProduct}
-            userProducts={publishedProducts.filter(p => p.ownerUserId === user.id && p.status === "published" && p.available)}
+            userProducts={publishedProducts.filter(p => p.ownerUserId === user.id && p.status === "Publicada" && p.available)}
             onPublishProduct={() => {
               setSelectedProduct(null);
               setIsPublishModalOpen(true);

@@ -206,6 +206,7 @@ export const productAPI = {
     comentarioNLP: string;
     ubicacion: string;
     imagenes?: File[];
+    estado: string;
   }) => {
     const formData = new FormData();
     formData.append('nombre', data.nombre);
@@ -213,6 +214,7 @@ export const productAPI = {
     formData.append('condicionesTrueque', data.condicionesTrueque);
     formData.append('comentarioNLP', data.comentarioNLP);
     formData.append('ubicacion', data.ubicacion);
+    formData.append('estado', data.estado);
 
     if (data.imagenes) {
       data.imagenes.forEach((image) => {

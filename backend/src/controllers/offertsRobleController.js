@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 
 export const createProduct = async (req, res) => {
 try{
-    const { nombre, categoria, condicionesTrueque, comentarioNLP, ubicacion } = req.body; 
+    const { nombre, categoria, condicionesTrueque, comentarioNLP, ubicacion,estado } = req.body; 
     let accessToken = getAccessToken();
     let refreshToken = getRefreshToken();
     let email = getEmail();
@@ -90,7 +90,7 @@ try{
         comentarioNLP: comentarioNLP,
         ubicacion: ubicacion,
         oferenteID: userId,
-        estado: 'borrador',
+        estado: estado,
         fechaCreacion: new Date().toISOString().slice(0, 10)
     };
     
