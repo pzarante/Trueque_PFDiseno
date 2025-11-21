@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id                String    @id @default(uuid())
+  nombre            String
+  email             String    @unique
+  password          String
+  ciudad            String?
+  descripcion       String?
+  emailVerificado   Boolean   @default(false)
+  tokenVerificacion String?
+  tokenReset        String?
+  activo            Boolean   @default(true)
+  fechaCreacion     DateTime  @default(now())
+  fechaActualizacion DateTime @updatedAt
+
+  productosOfrecidos Producto[] @relation("ProductosOfrecidos")
+  productosBuscados  Producto[] @relation("ProductosBuscados")
+
+  intercambiosComoSolicitante Intercambio[] @relation("SolicitanteIntercambio")
+  intercambiosComoOferente    Intercambio[] @relation("OferenteIntercambio")
+
+  calificacionesRecibidas Calificacion[] @relation("CalificacionesRecibidas")
+  calificacionesDadas     Calificacion[] @relation("CalificacionesDadas")
+
+  @@map("usuarios")
+}
+
+model Producto {
+  id                 String    @id @default(uuid())
+  nombre             String
+  categoria          String
+  imagenes           String[]  
+  condicionesTrueque String
+  comentarioNLP      String   
+  ubicacion          String
+  estado             String    @default("borrador") // borrador | publicada | pausada
+  fechaCreacion      DateTime  @default(now())
+  fechaActualizacion DateTime  @updatedAt
+
+  oferenteId          String
+  oferente            Usuario  @relation("ProductosOfrecidos", fields: [oferenteId], references: [id])
+
+  solicitanteId       String?
+  solicitante         Usuario? @relation("ProductosBuscados", fields: [solicitanteId], references: [id])
+
+  @@map("productos")
+}
+
+model Intercambio {
+  id              String   @id @default(uuid())
+  estado          String   @default("pendiente")
+  fechaCreacion   DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+
+  solicitanteId   String
+  solicitante     Usuario  @relation("SolicitanteIntercambio", fields: [solicitanteId], references: [id])
+
+  oferenteId      String
+  oferente        Usuario  @relation("OferenteIntercambio", fields: [oferenteId], references: [id])
+
+  @@map("intercambios")
+}
+
+model Calificacion {
+  id            String   @id @default(uuid())
+  puntaje       Int
+  comentario    String?
+  fechaCreacion DateTime @default(now())
+
+  calificadorId String
+  calificador   Usuario  @relation("CalificacionesDadas", fields: [calificadorId], references: [id])
+
+  calificadoId  String
+  calificado    Usuario  @relation("CalificacionesRecibidas", fields: [calificadoId], references: [id])
+
+  @@map("calificaciones")
+}
