@@ -74,7 +74,7 @@ export const createTradeProposal = async (req, res) => {
           confirmacion_oferente: 'pendiente',      // Dueño del producto visto
           confirmacion_destinatario: 'pendiente',  // Dueño del producto ofrecido
           fecha_creacion: new Date().toISOString(),
-          fecha_confirmacion: null
+          fecha_cierre: null
         }]
       },
       {
@@ -82,10 +82,20 @@ export const createTradeProposal = async (req, res) => {
       }
     );
 
-    res.status(201).json({
-      message: "Propuesta de trueque creada exitosamente",
-      data: tradeProposal.data
-    });
+    // Verificar si realmente se insertó
+    if (tradeProposal.data.inserted && tradeProposal.data.inserted.length > 0) {
+      res.status(201).json({
+        message: "Propuesta de trueque creada exitosamente",
+        data: tradeProposal.data,
+        tradeId: tradeProposal.data.inserted[0]._id
+      });
+    } else {
+      console.error('Trueque no insertado. Razón:', tradeProposal.data.skipped?.[0]?.reason);
+      res.status(400).json({
+        error: "No se pudo guardar el trueque en la base de datos",
+        detalles: tradeProposal.data.skipped?.[0]?.reason || "Error desconocido al insertar"
+      });
+    }
   } catch (error) {
     console.error("Error al crear propuesta de trueque:", error.response?.data || error.message);
     res.status(500).json({
@@ -176,8 +186,48 @@ export const confirmTrade = async (req, res) => {
       if (otraConfirmacion === 'aceptado') {
         nuevoEstado = 'completado';
         updates.status = 'completado';
-        updates.fecha_confirmacion = fechaActual;
         updates.fecha_cierre = fechaActual;
+        
+        // Cambiar dueño de los productos cuando el trueque se completa
+        // El producto que era del usuario1 pasa al usuario2
+        // El producto que era del usuario2 pasa al usuario1
+        try {
+          await axios.put(
+            'https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
+            {
+              tableName: 'productos',
+              idColumn: '_id',
+              idValue: trade.id_porductOferente,
+              updates: { oferenteID: trade.id_usuario2 }
+            },
+            {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            }
+          );
+          
+          await axios.put(
+            'https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/update',
+            {
+              tableName: 'productos',
+              idColumn: '_id',
+              idValue: trade.id_productDestinatario,
+              updates: { oferenteID: trade.id_usuario1 }
+            },
+            {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            }
+          );
+          
+          console.log('Productos transferidos exitosamente:', {
+            productoOferente: trade.id_porductOferente,
+            nuevoDueño: trade.id_usuario2,
+            productoDestinatario: trade.id_productDestinatario,
+            nuevoDueño2: trade.id_usuario1
+          });
+        } catch (productError) {
+          console.error('Error al transferir productos:', productError.response?.data || productError.message);
+          // No fallar el trueque si hay error en la transferencia, pero loguear el error
+        }
       } else {
         nuevoEstado = 'pendiente';
       }
@@ -228,7 +278,6 @@ export const confirmTrade = async (req, res) => {
         id_producto_destinatario: tradeData.id_productDestinatario || trade.id_productDestinatario,
         id_usuario1: tradeData.id_usuario1 || trade.id_usuario1,
         id_usuario2: tradeData.id_usuario2 || trade.id_usuario2,
-        fecha_confirmacion: tradeData.fecha_confirmacion || null,
         fecha_cancelacion: tradeData.fecha_cancelacion || tradeData.fecha_rechazo || null,
         fecha_cierre: tradeData.fecha_cierre || null
       }

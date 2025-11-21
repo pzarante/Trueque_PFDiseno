@@ -36,7 +36,25 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
     if (!isPasswordValid || !captchaToken) {
       return;
     }
-    onRegister(name, email, password, city, captchaToken);
+    // Llamar onRegister y manejar el error si ocurre
+    const registerPromise = onRegister(name, email, password, city, captchaToken);
+    
+    // Si onRegister retorna una promesa, manejar errores
+    if (registerPromise instanceof Promise) {
+      registerPromise.catch((error: any) => {
+        // Resetear captcha si hay un error de captcha
+        const errorMessage = error?.message?.toLowerCase() || "";
+        const errorData = error?.errorData || {};
+        const isCaptchaError = errorMessage.includes("captcha") || 
+                              errorData?.error?.toLowerCase().includes("captcha") ||
+                              error?.status === 400 && errorData?.error?.includes("captcha");
+        
+        if (isCaptchaError && recaptchaRef.current) {
+          recaptchaRef.current.reset();
+          setCaptchaToken(null);
+        }
+      });
+    }
   };
 
   // Definir colores de las animaciones según el tema

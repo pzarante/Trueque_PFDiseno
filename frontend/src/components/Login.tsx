@@ -45,7 +45,25 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
     if (!userCaptchaToken) {
       return;
     }
-    onLogin(email, password, false, userCaptchaToken);
+    // Llamar onLogin y manejar el error si ocurre
+    const loginPromise = onLogin(email, password, false, userCaptchaToken);
+    
+    // Si onLogin retorna una promesa, manejar errores
+    if (loginPromise instanceof Promise) {
+      loginPromise.catch((error: any) => {
+        // Resetear captcha si hay un error de captcha
+        const errorMessage = error?.message?.toLowerCase() || "";
+        const errorData = error?.errorData || {};
+        const isCaptchaError = errorMessage.includes("captcha") || 
+                              errorData?.error?.toLowerCase().includes("captcha") ||
+                              error?.status === 400 && errorData?.error?.includes("captcha");
+        
+        if (isCaptchaError && userRecaptchaRef.current) {
+          userRecaptchaRef.current.reset();
+          setUserCaptchaToken(null);
+        }
+      });
+    }
   };
 
   const handleAdminSubmit = (e: React.FormEvent) => {
@@ -53,7 +71,25 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
     if (!adminCaptchaToken) {
       return;
     }
-    onLogin(adminEmail, adminPassword, true, adminCaptchaToken);
+    // Llamar onLogin y manejar el error si ocurre
+    const loginPromise = onLogin(adminEmail, adminPassword, true, adminCaptchaToken);
+    
+    // Si onLogin retorna una promesa, manejar errores
+    if (loginPromise instanceof Promise) {
+      loginPromise.catch((error: any) => {
+        // Resetear captcha si hay un error de captcha
+        const errorMessage = error?.message?.toLowerCase() || "";
+        const errorData = error?.errorData || {};
+        const isCaptchaError = errorMessage.includes("captcha") || 
+                              errorData?.error?.toLowerCase().includes("captcha") ||
+                              error?.status === 400 && errorData?.error?.includes("captcha");
+        
+        if (isCaptchaError && adminRecaptchaRef.current) {
+          adminRecaptchaRef.current.reset();
+          setAdminCaptchaToken(null);
+        }
+      });
+    }
   };
 
   // Definir colores de las animaciones según el tema

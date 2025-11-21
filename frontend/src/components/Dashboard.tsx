@@ -66,6 +66,13 @@ interface DashboardProps {
   user: User;
   onViewProduct: (product: Product) => void;
   themeColor?: string;
+  onCreateNotification?: (notification: {
+    type: "trade_accepted" | "trade_rejected" | "trade_cancelled";
+    title: string;
+    description: string;
+    tradeId: string;
+    userId?: string;
+  }) => void;
 }
 
 interface Trade {
@@ -92,7 +99,8 @@ interface Trade {
 export function Dashboard({ 
   user, 
   onViewProduct,
-  themeColor = "blue"
+  themeColor = "blue",
+  onCreateNotification
 }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<"ofertas" | "trueques">("ofertas");
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
@@ -177,11 +185,33 @@ export function Dashboard({
   const pausedProducts = products.filter(p => p.status === "Pausada");
   const receivedTrades = trades.filter(t => t.id_usuario1 === user.id && t.id_usuario2 !== user.id);
   const sentTrades = trades.filter(t => t.id_usuario2 === user.id && t.id_usuario1 !== user.id);
-  const pendingTrades = trades.filter(t => 
-    (t.id_usuario1 === user.id || t.id_usuario2 === user.id) && 
-    t.status === "pendiente" &&
-    (t.mi_confirmacion === "pendiente" || !t.mi_confirmacion)
-  );
+  
+  // Trueques pendientes: aquellos donde el usuario actual necesita confirmar O está esperando la confirmación de la otra parte
+  const pendingTrades = trades.filter(t => {
+    if (t.status !== "pendiente") return false;
+    if (t.id_usuario1 !== user.id && t.id_usuario2 !== user.id) return false;
+    
+    const isUser1 = t.id_usuario1 === user.id;
+    const myConfirmationStatus = isUser1 ? t.confirmacion_oferente : t.confirmacion_destinatario;
+    const needsMyConfirmation = myConfirmationStatus === "pendiente" || !myConfirmationStatus || myConfirmationStatus === undefined;
+    
+    return needsMyConfirmation;
+  });
+  
+  // Trueques en proceso: el usuario ya aceptó pero está esperando la confirmación de la otra parte
+  const inProgressTrades = trades.filter(t => {
+    if (t.status !== "pendiente") return false;
+    if (t.id_usuario1 !== user.id && t.id_usuario2 !== user.id) return false;
+    
+    const isUser1 = t.id_usuario1 === user.id;
+    const myConfirmationStatus = isUser1 ? t.confirmacion_oferente : t.confirmacion_destinatario;
+    const otherConfirmationStatus = isUser1 ? t.confirmacion_destinatario : t.confirmacion_oferente;
+    const hasIAccepted = myConfirmationStatus === "aceptado";
+    const hasOtherAccepted = otherConfirmationStatus === "aceptado";
+    
+    return hasIAccepted && !hasOtherAccepted;
+  });
+  
   const closedTrades = trades.filter(t => 
     (t.id_usuario1 === user.id || t.id_usuario2 === user.id) && 
     (t.status === "completado" || t.status === "rechazado")
@@ -275,22 +305,71 @@ export function Dashboard({
 
   const handleConfirmTrade = async (tradeId: string, action: 'aceptar' | 'rechazar') => {
     try {
+      // Obtener información del trueque antes de confirmarlo para las notificaciones
+      const currentTrade = trades.find(t => t._id === tradeId);
+      const otherUser = currentTrade?.id_usuario1 === user.id 
+        ? currentTrade?.usuario_destinatario 
+        : currentTrade?.usuario_oferente;
+      
       const response = await truequesAPI.confirm(tradeId, action);
       const responseData = (response as any).data || response;
       
       if (responseData.status === 'completado') {
-        toast.success("¡Trueque completado!", {
-          description: "Ambas partes han confirmado el intercambio. Ahora puedes calificar al otro usuario.",
+        // Obtener el nombre del usuario actualizado después de la confirmación
+        const updatedTrade = responseData.data || responseData;
+        const otherUserId = currentTrade?.id_usuario1 === user.id 
+          ? updatedTrade.id_usuario2 
+          : updatedTrade.id_usuario1;
+        
+        // Obtener información actualizada del otro usuario si no la tenemos
+        let otherUserName = otherUser?.name;
+        if (!otherUserName && otherUserId) {
+          try {
+            const userInfo = updatedTrade.id_usuario1 === otherUserId 
+              ? updatedTrade.usuario_oferente 
+              : updatedTrade.usuario_destinatario;
+            otherUserName = userInfo?.name || otherUser?.name || "el otro usuario";
+          } catch (e) {
+            console.error("Error obteniendo nombre del usuario:", e);
+            otherUserName = otherUser?.name || "el otro usuario";
+          }
+        }
+        
+        toast.success("¡Trueque completado exitosamente!", {
+          description: "Ambas partes han confirmado el intercambio. El trueque ha sido finalizado. Ahora puedes calificar al otro usuario.",
         });
+        
+        // Crear notificación de trueque completado con el nombre del usuario
+        if (onCreateNotification) {
+          onCreateNotification({
+            type: "trade_accepted",
+            title: "¡Trueque completado!",
+            description: `El trueque con ${otherUserName} ha sido completado exitosamente.`,
+            tradeId: tradeId,
+            userId: otherUserId || otherUser?._id || otherUser?.id,
+          });
+        }
+        
         await checkRatingStatuses();
       } else if (action === 'aceptar') {
-        toast.success("Trueque aceptado", {
-          description: "Esperando confirmación de la otra parte",
+        toast.success("Has confirmado tu parte del trueque", {
+          description: "El intercambio se completará cuando la otra parte también confirme. Puedes ver el progreso en la pestaña 'En Proceso'.",
         });
       } else {
         toast.success("Trueque rechazado", {
-          description: "El trueque ha sido cancelado",
+          description: "Has rechazado el trueque. El intercambio ha sido cancelado.",
         });
+        
+        // Crear notificación de trueque rechazado
+        if (onCreateNotification && otherUser) {
+          onCreateNotification({
+            type: "trade_rejected",
+            title: "Trueque rechazado",
+            description: `${user.name} ha rechazado el trueque.`,
+            tradeId: tradeId,
+            userId: otherUser._id || otherUser.id,
+          });
+        }
       }
       
       setTradeToConfirm(null);
@@ -663,6 +742,7 @@ export function Dashboard({
                 <TabsTrigger value="recibidos">Recibidos ({receivedTrades.length})</TabsTrigger>
                 <TabsTrigger value="enviados">Enviados ({sentTrades.length})</TabsTrigger>
                 <TabsTrigger value="pendientes">Confirmación Pendiente ({pendingTrades.length})</TabsTrigger>
+                <TabsTrigger value="en-proceso">En Proceso ({inProgressTrades.length})</TabsTrigger>
                 <TabsTrigger value="cerrados">Cerrados ({closedTrades.length})</TabsTrigger>
               </TabsList>
 
@@ -766,6 +846,34 @@ export function Dashboard({
                 </div>
               </TabsContent>
 
+              <TabsContent value="en-proceso">
+                <div className="space-y-4">
+                  {inProgressTrades.length === 0 ? (
+                    <Card>
+                      <CardContent className="flex flex-col items-center justify-center py-12">
+                        <Clock className="w-12 h-12 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">No tienes trueques en proceso</p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Los trueques en proceso son aquellos que ya aceptaste y están esperando la confirmación de la otra parte.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    inProgressTrades.map((trade) => (
+                      <TradeCard
+                        key={trade._id}
+                        trade={trade}
+                        currentUserId={user.id}
+                        onViewProduct={onViewProduct}
+                        onConfirm={(id, action) => setTradeToConfirm({ id, action })}
+                        onRate={openRatingModal}
+                        ratingStatus={ratingStatuses[trade._id]}
+                      />
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+
               <TabsContent value="cerrados">
                 <div className="space-y-4">
                   {closedTrades.length === 0 ? (
@@ -834,8 +942,8 @@ export function Dashboard({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {tradeToConfirm?.action === 'aceptar' 
-                ? 'Al aceptar, el trueque quedará pendiente de confirmación de la otra parte.'
-                : 'Al rechazar, el trueque será cancelado.'}
+                ? 'Al aceptar, confirmarás tu parte del trueque. El intercambio se completará cuando la otra parte también acepte.'
+                : 'Al rechazar, el trueque será cancelado y no podrá ser completado.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -880,7 +988,14 @@ function TradeCard({
   const otherUser = isReceived ? trade.usuario_destinatario : trade.usuario_oferente;
   const myProduct = isReceived ? trade.producto_oferente : trade.producto_destinatario;
   const otherProduct = isReceived ? trade.producto_destinatario : trade.producto_oferente;
-  const needsMyConfirmation = trade.mi_confirmacion === "pendiente" || !trade.mi_confirmacion;
+  
+  // Determinar estado de confirmación
+  const myConfirmationStatus = isReceived ? trade.confirmacion_oferente : trade.confirmacion_destinatario;
+  const otherConfirmationStatus = isReceived ? trade.confirmacion_destinatario : trade.confirmacion_oferente;
+  const needsMyConfirmation = myConfirmationStatus === "pendiente" || !myConfirmationStatus || myConfirmationStatus === undefined;
+  const hasIAccepted = myConfirmationStatus === "aceptado";
+  const hasOtherAccepted = otherConfirmationStatus === "aceptado";
+  const isWaitingForOther = hasIAccepted && !hasOtherAccepted && trade.status === "pendiente";
 
   if (!myProduct || !otherProduct) {
     return null;
@@ -889,16 +1004,66 @@ function TradeCard({
   const myProductData = myProduct as any;
   const otherProductData = otherProduct as any;
 
+  // Procesar imágenes del producto propio
+  let myProductImages: string[] = [];
+  try {
+    if (myProductData.imagenes) {
+      const imgData = typeof myProductData.imagenes === 'string' ? JSON.parse(myProductData.imagenes) : myProductData.imagenes;
+      if (Array.isArray(imgData)) {
+        myProductImages = imgData.map((img: any) => {
+          if (img.url) return `http://localhost:3000${img.url}`;
+          if (img.filename) return productAPI.getImage(img.filename);
+          return img;
+        });
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing my product images:", e);
+  }
+
+  // Procesar imágenes del producto del otro usuario
+  let otherProductImages: string[] = [];
+  try {
+    if (otherProductData.imagenes) {
+      const imgData = typeof otherProductData.imagenes === 'string' ? JSON.parse(otherProductData.imagenes) : otherProductData.imagenes;
+      if (Array.isArray(imgData)) {
+        otherProductImages = imgData.map((img: any) => {
+          if (img.url) return `http://localhost:3000${img.url}`;
+          if (img.filename) return productAPI.getImage(img.filename);
+          return img;
+        });
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing other product images:", e);
+  }
+
+  // Obtener el dueño actual del producto propio
+  const myProductOwnerId = myProductData.oferenteID || "";
+  const myProductOwner = trade.id_usuario1 === myProductOwnerId 
+    ? trade.usuario_oferente 
+    : trade.id_usuario2 === myProductOwnerId 
+    ? trade.usuario_destinatario 
+    : null;
+  
+  // Obtener el dueño actual del producto del otro usuario
+  const otherProductOwnerId = otherProductData.oferenteID || "";
+  const otherProductOwner = trade.id_usuario1 === otherProductOwnerId 
+    ? trade.usuario_oferente 
+    : trade.id_usuario2 === otherProductOwnerId 
+    ? trade.usuario_destinatario 
+    : null;
+
   const myProductFormatted: Product = {
     id: myProductData._id || myProductData.id || "",
     title: myProductData.nombre || myProductData.title || "",
     description: myProductData.comentarioNLP || myProductData.description || "",
     category: myProductData.categoria || myProductData.category || "",
-    image: getProductImageUrl(myProductData.imagenes || myProductData.image),
-    images: [],
+    image: myProductImages[0] || getProductImageUrl(myProductData.imagenes || myProductData.image),
+    images: myProductImages.length > 0 ? myProductImages : [getProductImageUrl(myProductData.imagenes || myProductData.image)],
     location: myProductData.ubicacion || myProductData.location || "",
-    ownerName: myProductData.usuario?.name || "",
-    ownerUserId: myProductData.oferenteID || "",
+    ownerName: myProductOwner?.name || myProductData.usuario?.name || "Usuario",
+    ownerUserId: myProductOwnerId,
     condition: "Bueno",
     interestedIn: [],
     status: "Publicada",
@@ -911,11 +1076,11 @@ function TradeCard({
     title: otherProductData.nombre || otherProductData.title || "",
     description: otherProductData.comentarioNLP || otherProductData.description || "",
     category: otherProductData.categoria || otherProductData.category || "",
-    image: getProductImageUrl(otherProductData.imagenes || otherProductData.image),
-    images: [],
+    image: otherProductImages[0] || getProductImageUrl(otherProductData.imagenes || otherProductData.image),
+    images: otherProductImages.length > 0 ? otherProductImages : [getProductImageUrl(otherProductData.imagenes || otherProductData.image)],
     location: otherProductData.ubicacion || otherProductData.location || "",
-    ownerName: otherUser?.name || "",
-    ownerUserId: otherProductData.oferenteID || "",
+    ownerName: otherProductOwner?.name || otherUser?.name || otherProductData.usuario?.name || "Usuario",
+    ownerUserId: otherProductOwnerId,
     condition: "Bueno",
     interestedIn: [],
     status: "Publicada",
@@ -931,13 +1096,18 @@ function TradeCard({
           <Badge variant={
             trade.status === "completado" ? "default" :
             trade.status === "rechazado" ? "destructive" :
+            isWaitingForOther ? "default" :
             "secondary"
           }>
-            {trade.status}
+            {trade.status === "completado" ? "Completado" :
+             trade.status === "rechazado" ? "Rechazado" :
+             isWaitingForOther ? "En Proceso" :
+             "Pendiente"}
           </Badge>
         </div>
         <CardDescription>
           {isReceived ? "Recibiste" : "Enviaste"} una propuesta de trueque
+          {isWaitingForOther && ` • Esperando confirmación de ${otherUser?.name || "la otra parte"}`}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -970,10 +1140,43 @@ function TradeCard({
                 className="w-full h-32 object-cover rounded mb-2"
               />
               <p className="font-medium">{otherProductFormatted.title}</p>
-              <p className="text-sm text-muted-foreground">de {otherUser?.name || "Usuario"}</p>
+              <p className="text-sm text-muted-foreground">de {otherProductFormatted.ownerName || "Usuario"}</p>
             </div>
           </div>
         </div>
+
+        {/* Estado de confirmación bilateral */}
+        {trade.status === "pendiente" && (
+          <div className="mb-4 p-3 bg-muted/50 rounded-lg space-y-2">
+            <p className="text-sm font-medium mb-2">Estado de confirmación:</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tu confirmación:</span>
+                <Badge variant={
+                  myConfirmationStatus === "aceptado" ? "default" :
+                  myConfirmationStatus === "rechazado" ? "destructive" :
+                  "secondary"
+                }>
+                  {myConfirmationStatus === "aceptado" ? "Aceptado" :
+                   myConfirmationStatus === "rechazado" ? "Rechazado" :
+                   "Pendiente"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">{otherUser?.name || "Usuario"}:</span>
+                <Badge variant={
+                  otherConfirmationStatus === "aceptado" ? "default" :
+                  otherConfirmationStatus === "rechazado" ? "destructive" :
+                  "secondary"
+                }>
+                  {otherConfirmationStatus === "aceptado" ? "Aceptado" :
+                   otherConfirmationStatus === "rechazado" ? "Rechazado" :
+                   "Pendiente"}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        )}
         
         {needsMyConfirmation && trade.status === "pendiente" && (
           <div className="flex gap-2 pt-4 border-t">
@@ -982,7 +1185,7 @@ function TradeCard({
               className="flex-1"
             >
               <Check className="w-4 h-4 mr-2" />
-              Aceptar
+              Aceptar Trueque
             </Button>
             <Button
               onClick={() => onConfirm(trade._id, 'rechazar')}
@@ -992,6 +1195,20 @@ function TradeCard({
               <X className="w-4 h-4 mr-2" />
               Rechazar
             </Button>
+          </div>
+        )}
+
+        {isWaitingForOther && (
+          <div className="pt-4 border-t">
+            <div className="flex items-center gap-2 text-blue-600 bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
+              <Clock className="w-4 h-4" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Esperando confirmación de {otherUser?.name || "la otra parte"}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ya aceptaste el trueque. El intercambio se completará cuando la otra parte también confirme.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 

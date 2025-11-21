@@ -8,6 +8,12 @@ export default async function recaptchaMiddleware(req, res, next) {
       return res.status(400).json({ error: "captcha requerido" });
     }
 
+    // Si no hay clave secreta configurada, permitir pasar en desarrollo
+    if (!process.env.RECAPTCHA_SECRET_KEY) {
+      console.warn("RECAPTCHA_SECRET_KEY no configurado. Omitiendo validación en desarrollo.");
+      return next();
+    }
+
     const params = new URLSearchParams();
     params.append("secret", process.env.RECAPTCHA_SECRET_KEY);
     params.append("response", token);
@@ -21,12 +27,19 @@ export default async function recaptchaMiddleware(req, res, next) {
     );
 
     if (!data.success) {
-      return res.status(400).json({ error: "captcha inválido" });
+      console.error("Error en validación de captcha:", data["error-codes"]);
+      return res.status(400).json({ 
+        error: "captcha inválido",
+        details: data["error-codes"] || ["Token inválido o expirado"]
+      });
     }
 
     next();
   } catch (e) {
     console.error("Error verificando captcha:", e);
-    return res.status(500).json({ error: "error verificando captcha" });
+    return res.status(500).json({ 
+      error: "error verificando captcha",
+      details: e.message 
+    });
   }
 }

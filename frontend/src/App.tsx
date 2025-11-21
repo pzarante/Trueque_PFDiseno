@@ -409,8 +409,28 @@ export default function App() {
       } catch (error: any) {
         console.error("Error en login:", error);
         
-        // Verificar si el error es por email no verificado (solo si el backend responde con 403)
+        // Verificar si el error es por captcha inválido
+        const errorMessage = error.message || "";
         const errorData = error.errorData || {};
+        const isCaptchaError = errorMessage.toLowerCase().includes("captcha") || 
+                              errorData.error?.toLowerCase().includes("captcha") ||
+                              (error.status === 400 && (errorMessage.includes("captcha") || errorData.error?.includes("captcha")));
+        
+        if (isCaptchaError) {
+          const detailsMessage = errorData.details 
+            ? Array.isArray(errorData.details) 
+              ? errorData.details.join(", ")
+              : errorData.details
+            : "El token ha expirado o es inválido";
+          
+          toast.error("Error de verificación del captcha", {
+            description: `${detailsMessage}. Por favor, resuelve el captcha nuevamente.`,
+            duration: 5000,
+          });
+          return;
+        }
+        
+        // Verificar si el error es por email no verificado (solo si el backend responde con 403)
         if (error.status === 403 && errorData.requiresVerification) {
           setVerificationEmail(email);
           setShowEmailVerification(true);
@@ -871,70 +891,86 @@ export default function App() {
     }
   };
 
-  const handleProposeTrade = (productId: string, proposedProductId?: string) => {
+  const handleProposeTrade = async (productId: string, proposedProductId?: string) => {
     if (!user) return;
     
+    if (!proposedProductId) {
+      toast.error("Error", {
+        description: "Debes seleccionar un producto para intercambiar",
+      });
+      return;
+    }
+    
     const product = publishedProducts.find(p => p.id === productId);
-    if (!product) return;
+    if (!product) {
+      toast.error("Error", {
+        description: "Producto no encontrado",
+      });
+      return;
+    }
     
-    const proposedProduct = proposedProductId ? publishedProducts.find(p => p.id === proposedProductId) : null;
+    const proposedProduct = publishedProducts.find(p => p.id === proposedProductId);
+    if (!proposedProduct) {
+      toast.error("Error", {
+        description: "Producto propuesto no encontrado",
+      });
+      return;
+    }
     
-    const newTrade: Trade = {
-      id: Date.now().toString(),
-      user1Id: user.id,
-      user2Id: product.ownerUserId,
-      product1Id: proposedProductId || "",
-      product2Id: productId,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      initiatorId: user.id,
-      receiverId: product.ownerUserId,
-    };
-    
-    setTrades([newTrade, ...trades]);
-    
-    const proposalMessage = proposedProduct 
-      ? `Has propuesto intercambiar "${proposedProduct.title}" por "${product.title}"`
-      : `Has mostrado interés en "${product.title}"`;
-    
-    toast.success("¡Propuesta enviada exitosamente!", {
-      description: proposalMessage,
-    });
-    setSelectedProduct(null);
-    
-    // Add notification for product owner (actionable)
-    const notificationDescription = proposedProduct
-      ? `${user.name} quiere intercambiar "${proposedProduct.title}" por tu producto "${product.title}"`
-      : `${user.name} está interesado en tu producto "${product.title}"`;
-    
-    const newNotification: Notification = {
-      id: Date.now().toString(),
-      type: "trade_request",
-      title: "Nueva propuesta de intercambio",
-      description: notificationDescription,
-      time: "Ahora",
-      read: false,
-      productId: productId,
-      userId: user.id,
-      tradeId: newTrade.id,
-      actionable: true,
-    };
-    setNotifications([newNotification, ...notifications]);
-    
-    // Add activity for sender
-    const activityDescription = proposedProduct
-      ? `Propusiste intercambiar "${proposedProduct.title}" por "${product.title}"`
-      : `Mostraste interés en "${product.title}"`;
-    
-    const activity: Activity = {
-      id: Date.now().toString(),
-      type: "trade",
-      title: "Propuesta enviada",
-      description: activityDescription,
-      date: new Date().toISOString(),
-      productId: productId,
-    };
-    addActivity(user.id, activity);
+    try {
+      // Llamar al backend para guardar en ROBLE
+      const { truequesAPI } = await import('./services/api');
+      const response = await truequesAPI.propose({
+        id_producto_oferente: productId,
+        id_producto_destinatario: proposedProductId,
+      }) as any;
+      
+      const proposalMessage = `Has propuesto intercambiar "${proposedProduct.title}" por "${product.title}"`;
+      
+      toast.success("¡Propuesta enviada exitosamente!", {
+        description: proposalMessage,
+      });
+      setSelectedProduct(null);
+      
+      // Recargar los trueques para mostrar el nuevo
+      // El Dashboard los cargará automáticamente
+      
+      // Add notification for product owner (actionable)
+      const notificationDescription = `${user.name} quiere intercambiar "${proposedProduct.title}" por tu producto "${product.title}"`;
+      
+      const newNotification: Notification = {
+        id: Date.now().toString(),
+        type: "trade_request",
+        title: "Nueva propuesta de intercambio",
+        description: notificationDescription,
+        time: "Ahora",
+        read: false,
+        productId: productId,
+        userId: user.id,
+        tradeId: response.data?.inserted?.[0]?._id || response.tradeId || Date.now().toString(),
+        actionable: true,
+      };
+      setNotifications([newNotification, ...notifications]);
+      
+      // Add activity for sender
+      const activityDescription = `Propusiste intercambiar "${proposedProduct.title}" por "${product.title}"`;
+      
+      const activity: Activity = {
+        id: Date.now().toString(),
+        type: "trade",
+        title: "Propuesta enviada",
+        description: activityDescription,
+        date: new Date().toISOString(),
+        productId: productId,
+      };
+      addActivity(user.id, activity);
+    } catch (error: any) {
+      console.error("Error al proponer trueque:", error);
+      const errorMessage = error.response?.data?.error || error.message || "No se pudo crear la propuesta de trueque";
+      toast.error("Error al enviar propuesta", {
+        description: errorMessage,
+      });
+    }
   };
 
   const handleAcceptTrade = (tradeId: string) => {
@@ -1461,6 +1497,20 @@ export default function App() {
           <Dashboard
             user={user}
             onViewProduct={handleViewProduct}
+            onCreateNotification={(notificationData) => {
+              const notification: Notification = {
+                id: Date.now().toString(),
+                type: notificationData.type,
+                title: notificationData.title,
+                description: notificationData.description,
+                time: "Ahora",
+                read: false,
+                tradeId: notificationData.tradeId,
+                userId: notificationData.userId,
+                actionable: false,
+              };
+              setNotifications([notification, ...notifications]);
+            }}
             themeColor={themeColor}
           />
         )}
