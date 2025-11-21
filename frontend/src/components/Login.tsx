@@ -7,6 +7,7 @@ import { ArrowRightLeft, Shield, User } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ThemeColor } from "./ThemeColorPicker";
 import { useThemeColor, getGradientClasses, getShadowClasses, getAccentBgClasses, getAccentBorderClasses, getAccentTextClasses, getTextClasses } from "../hooks/useThemeColor";
+import { PasswordInput } from "./PasswordInput";
 
 interface LoginProps {
   onLogin: (email: string, password: string, isAdmin: boolean) => void;
@@ -129,17 +130,23 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="bg-input-background"
-                  />
+                <PasswordInput
+                  id="password"
+                  label="Contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => onNavigate("forgot-password")}
+                    className={`text-sm ${textClasses} hover:opacity-80 transition-opacity`}
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
                 </div>
 
                 <Button
@@ -176,18 +183,14 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="admin-password">Contraseña</Label>
-                  <Input
-                    id="admin-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    required
-                    className="bg-input-background"
-                  />
-                </div>
+                <PasswordInput
+                  id="admin-password"
+                  label="Contraseña"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
 
                 <Button
                   type="submit"
