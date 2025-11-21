@@ -57,7 +57,8 @@ def recommendation():
         query_embeddings=[user_profile_embedding],
         n_results=10,  # Número de recomendaciones
     )
-    
+    print("RAW IDS:", results["ids"][0], flush =True)
+
     # PASO 3: Formatear respuesta
     recommended_offer_ids = []
 
@@ -67,7 +68,11 @@ def recommendation():
         # Excluir ofertas que ya están en el historial del usuario 
         if offer_id not in str(offer_ids):
             recommended_offer_ids.append(offer_id)
+        
+    
       
+    recommended_offer_ids = list(dict.fromkeys(recommended_offer_ids))
+    print("Recommended Offer IDs:", recommended_offer_ids, flush=True)
 
     # Después de obtener recommended_offer_ids
     #los keywords son solo para pruebas
