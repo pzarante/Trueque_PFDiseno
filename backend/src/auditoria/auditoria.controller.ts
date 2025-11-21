@@ -10,13 +10,11 @@ export class AuditoriaController {
     return this.auditoriaService.registrarAuditoria(data);
   }
 
-  // 🔹 Auditoría global
   @Get()
   obtener() {
     return this.auditoriaService.obtenerAuditorias();
   }
 
-  // 🔹 Auditoría filtrada por usuario
   @Get(':userId')
   obtenerPorUsuario(@Param('userId') userId: string) {
     return this.auditoriaService.obtenerPorUsuario(userId);
