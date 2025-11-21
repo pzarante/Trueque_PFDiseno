@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { AuditoriaService } from './auditoria.service';
 
 @Controller('auditoria')
@@ -10,8 +10,15 @@ export class AuditoriaController {
     return this.auditoriaService.registrarAuditoria(data);
   }
 
+  // 🔹 Auditoría global
   @Get()
   obtener() {
     return this.auditoriaService.obtenerAuditorias();
+  }
+
+  // 🔹 Auditoría filtrada por usuario
+  @Get(':userId')
+  obtenerPorUsuario(@Param('userId') userId: string) {
+    return this.auditoriaService.obtenerPorUsuario(userId);
   }
 }
