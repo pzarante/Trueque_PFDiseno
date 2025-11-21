@@ -87,7 +87,6 @@ interface Trade {
   fecha_creacion: string;
   fecha_confirmacion?: string;
   fecha_cancelacion?: string;
-  fecha_rechazo?: string;
   fecha_cierre?: string;
   producto_oferente?: Product;
   producto_destinatario?: Product;
@@ -1257,9 +1256,9 @@ function TradeCard({
               <X className="w-4 h-4" />
               <span className="text-sm font-medium">Trueque rechazado</span>
             </div>
-            {(trade.fecha_cancelacion || trade.fecha_rechazo) && (
+            {trade.fecha_cancelacion && (
               <p className="text-xs text-muted-foreground mt-1">
-                Cancelado el {new Date(trade.fecha_cancelacion || trade.fecha_rechazo || new Date()).toLocaleDateString("es-CO", {
+                Cancelado el {new Date(trade.fecha_cancelacion).toLocaleDateString("es-CO", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",

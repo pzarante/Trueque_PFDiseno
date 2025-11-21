@@ -76,7 +76,6 @@ export interface Trade {
   fecha_creacion?: string;
   fecha_confirmacion?: string;
   fecha_cancelacion?: string;
-  fecha_rechazo?: string;
   fecha_cierre?: string;
   confirmacion_oferente?: string;
   confirmacion_destinatario?: string;

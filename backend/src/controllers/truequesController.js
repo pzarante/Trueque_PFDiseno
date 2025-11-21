@@ -177,9 +177,6 @@ export const confirmTrade = async (req, res) => {
       nuevoEstado = 'rechazado';
       updates.status = 'rechazado';
       updates.fecha_cancelacion = fechaActual;
-      if (!trade.fecha_rechazo) {
-        updates.fecha_rechazo = fechaActual;
-      }
     } else if (accion === 'aceptar') {
       const otraConfirmacion = esUsuario1 ? trade.confirmacion_destinatario : trade.confirmacion_oferente;
       
@@ -278,7 +275,7 @@ export const confirmTrade = async (req, res) => {
         id_producto_destinatario: tradeData.id_productDestinatario || trade.id_productDestinatario,
         id_usuario1: tradeData.id_usuario1 || trade.id_usuario1,
         id_usuario2: tradeData.id_usuario2 || trade.id_usuario2,
-        fecha_cancelacion: tradeData.fecha_cancelacion || tradeData.fecha_rechazo || null,
+        fecha_cancelacion: tradeData.fecha_cancelacion || null,
         fecha_cierre: tradeData.fecha_cierre || null
       }
     });
