@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "31000:3000"
+    depends_on:
+      - nlp
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "30080:3000"
+
+  nlp:
+    build: ./modelo_NLP
+    ports:
+      - "32000:5000"
