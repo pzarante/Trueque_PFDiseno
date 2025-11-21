@@ -28,7 +28,7 @@ def search_offers():
         )
     else:
         results = current_app.collection.query(
-            query_embeddings=query_embedding,
+            query_embeddings=[query_embedding],
             n_results=n
         )
 

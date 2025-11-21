@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { X, Save, Loader2, User, Mail, MapPin, Phone } from "lucide-react";
+import { X, Save, Loader2, User, MapPin } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -18,10 +18,8 @@ interface EditProfileProps {
 
 export interface ProfileData {
   name: string;
-  email: string;
-  phone: string;
-  location: string;
-  bio: string;
+  ciudad: string;
+  descripcion: string;
 }
 
 const CITIES = [
@@ -46,10 +44,8 @@ export function EditProfile({
   currentUser,
 }: EditProfileProps) {
   const [name, setName] = useState(currentUser?.name || "");
-  const [email, setEmail] = useState(currentUser?.email || "");
-  const [phone, setPhone] = useState("");
-  const [location, setLocation] = useState("Bogotá");
-  const [bio, setBio] = useState("");
+  const [location, setLocation] = useState(currentUser?.city || currentUser?.ciudad || "Bogotá");
+  const [bio, setBio] = useState(currentUser?.description || currentUser?.descripcion || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { themeColor } = useThemeColor();
   const gradientClasses = getGradientClasses(themeColor);
@@ -59,20 +55,14 @@ export function EditProfile({
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simular delay de guardado
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
     const profileData: ProfileData = {
       name,
-      email,
-      phone,
-      location,
-      bio,
+      ciudad: location,
+      descripcion: bio,
     };
 
     onSave(profileData);
     setIsSubmitting(false);
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -156,40 +146,6 @@ export function EditProfile({
             />
           </div>
 
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="email" className="flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              Correo Electrónico *
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="tu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="bg-input-background"
-              aria-required="true"
-            />
-          </div>
-
-          {/* Phone */}
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="flex items-center gap-2">
-              <Phone className="w-4 h-4" />
-              Teléfono (opcional)
-            </Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+57 300 123 4567"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="bg-input-background"
-            />
-          </div>
-
           {/* Location */}
           <div className="space-y-2">
             <Label htmlFor="location" className="flex items-center gap-2">
@@ -213,7 +169,7 @@ export function EditProfile({
           {/* Bio */}
           <div className="space-y-2">
             <Label htmlFor="bio">
-              Sobre ti (opcional)
+              Descripción breve (opcional)
             </Label>
             <Textarea
               id="bio"

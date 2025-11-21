@@ -14,6 +14,7 @@ interface RecommendationsProps {
   currentUserId?: string;
   currentUser?: User | null;
   onToggleFavorite?: (productId: string) => void;
+  onNavigate?: (page: string) => void;
 }
 
 type SentimentType = "positive" | "neutral" | "negative";
@@ -115,7 +116,8 @@ export function Recommendations({
   onViewProduct, 
   currentUserId,
   currentUser,
-  onToggleFavorite 
+  onToggleFavorite,
+  onNavigate
 }: RecommendationsProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const { themeColor } = useThemeColor();
@@ -130,7 +132,13 @@ export function Recommendations({
   }, [publishedProducts, currentUserId, currentUser, refreshKey]);
 
   const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
+    window.location.reload();
+  };
+
+  const handleExploreMarketplace = () => {
+    if (onNavigate) {
+      onNavigate("marketplace");
+    }
   };
 
   const getSentimentIcon = (sentiment?: SentimentType) => {
@@ -325,8 +333,8 @@ export function Recommendations({
               Comienza a explorar productos y añade algunos a favoritos para recibir recomendaciones personalizadas.
             </p>
             <Button
-              onClick={() => window.location.href = "#marketplace"}
-              className={`bg-gradient-to-r ${gradientClasses} min-h-[44px]`}
+              onClick={handleExploreMarketplace}
+              className={`bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses} min-h-[44px]`}
             >
               Explorar Marketplace
             </Button>

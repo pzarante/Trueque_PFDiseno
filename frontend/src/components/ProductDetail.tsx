@@ -23,7 +23,7 @@ interface ProductDetailProps {
   onClose: () => void;
   onProposeTrade: (productId: string, proposedProductId?: string) => void;
   onViewProfile: (userId: string) => void;
-  onContactUser: (userId: string) => void;
+  onContactUser: (userId: string, productId?: string) => void;
   onEditProduct?: (product: Product) => void;
   currentUserId: string;
   isFavorited: boolean;
@@ -89,10 +89,40 @@ export function ProductDetail({
     }
   };
 
-  const handleToggleAvailability = () => {
-    if (onUpdateProduct) {
-      const updatedProduct = { ...product, available: !product.available };
-      onUpdateProduct(updatedProduct);
+  const handleToggleAvailability = async () => {
+    try {
+      const { productAPI } = await import("../services/api");
+      
+      // Si está publicado/publicada, cambiar a pausada. Si está pausada, cambiar a publicada
+      const isCurrentlyPaused = product.status === "Pausada" || product.status === "paused" || product.status === "pausado";
+      const newStatus = isCurrentlyPaused ? "Publicada" : "Pausada";
+      const backendStatus = isCurrentlyPaused ? "publicado" : "pausado";
+      
+      await productAPI.updateStatus(product.title, backendStatus);
+      
+      if (onUpdateProduct) {
+        const updatedProduct = { 
+          ...product, 
+          available: isCurrentlyPaused,
+          status: newStatus
+        };
+        onUpdateProduct(updatedProduct);
+      }
+      
+      const { toast } = await import("sonner");
+      toast.success(
+        isCurrentlyPaused ? "Producto reactivado" : "Producto pausado",
+        {
+          description: isCurrentlyPaused 
+            ? "El producto ha sido publicado nuevamente"
+            : "El producto ha sido pausado y ya no está disponible para intercambios"
+        }
+      );
+    } catch (error: any) {
+      const { toast } = await import("sonner");
+      toast.error("Error al actualizar estado", {
+        description: error.message || "No se pudo cambiar el estado del producto",
+      });
     }
   };
 
@@ -297,7 +327,7 @@ export function ProductDetail({
                       className="flex-1 min-h-[44px]"
                       onClick={handleToggleAvailability}
                     >
-                      {product.available ? "Marcar No Disponible" : "Marcar Disponible"}
+                      {product.status === "Pausada" || product.status === "paused" || product.status === "pausado" ? "Reactivar Producto" : "Pausar Producto"}
                     </Button>
                   </>
                 ) : (
@@ -313,7 +343,10 @@ export function ProductDetail({
                     <Button 
                       variant="outline" 
                       className="flex-1 min-h-[44px]"
-                      onClick={() => onContactUser(product.ownerUserId)}
+                      onClick={() => {
+                        onContactUser(product.ownerUserId, product.id);
+                        onClose();
+                      }}
                     >
                       Contactar
                     </Button>

@@ -55,9 +55,7 @@ def upsert_offer():
     
     # Solo insertar historial si es una nueva publicación
     # Para ediciones, podrías usar un tipo diferente como "edit"
-    if not is_existing:  # Si no existe
+    if not is_existing:
         insert_history(offer_id, user_id, "pub")
         
-  
-    
     return jsonify({"message": "Offer processed successfully", "action": "upsert"}), 200

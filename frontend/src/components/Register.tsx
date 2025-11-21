@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -7,9 +7,10 @@ import { ArrowRightLeft } from "lucide-react";
 import { ThemeColor } from "./ThemeColorPicker";
 import { useThemeColor, getGradientClasses, getShadowClasses, getTextClasses } from "../hooks/useThemeColor";
 import { PasswordInput } from "./PasswordInput";
+import ReCAPTCHA from "react-google-recaptcha";
 
 interface RegisterProps {
-  onRegister: (name: string, email: string, password: string, city: string) => void;
+  onRegister: (name: string, email: string, password: string, city: string, captchaToken?: string) => void;
   onNavigate: (page: string) => void;
 }
 
@@ -23,13 +24,19 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
   const [password, setPassword] = useState("");
   const [city, setCity] = useState("");
   const [isPasswordValid, setIsPasswordValid] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+
+  const handleCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isPasswordValid) {
+    if (!isPasswordValid || !captchaToken) {
       return;
     }
-    onRegister(name, email, password, city);
+    onRegister(name, email, password, city, captchaToken);
   };
 
   // Definir colores de las animaciones según el tema
@@ -149,9 +156,18 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
               />
             </div>
 
+            <div className="flex justify-center">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                onChange={handleCaptchaChange}
+                theme="dark"
+              />
+            </div>
+
             <Button
               type="submit"
-              disabled={!isPasswordValid}
+              disabled={!isPasswordValid || !captchaToken}
               className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               Crear Cuenta

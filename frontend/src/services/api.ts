@@ -89,18 +89,22 @@ export const authAPI = {
     email: string;
     password: string;
     ciudad: string;
+    captchaToken?: string;
   }) => {
     return request('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        captchaToken: data.captchaToken,
+      }),
     });
   },
 
-  login: async (email: string, password: string) => {
+  login: async (email: string, password: string, captchaToken?: string) => {
     try {
       const response = await request<{ token?: string; message?: string; accessToken?: string }>('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, captchaToken }),
       });
       
       // Si el backend devuelve un token o accessToken, guardarlo
@@ -178,8 +182,46 @@ export const userAPI = {
     });
   },
 
+  getReputation: async () => {
+    return request('/api/users/reputation');
+  },
+
+  toggleUserStatus: async (userEmail: string, active: boolean) => {
+    return request('/api/users/admin/toggle-status', {
+      method: 'PUT',
+      body: JSON.stringify({ userEmail, active }),
+    });
+  },
+
   getProducts: async () => {
     return request('/api/users/productos');
+  },
+
+  getAllPublishedProducts: async () => {
+    return request('/api/users/all-published');
+  },
+
+  getProfileById: async (userId: string) => {
+    return request(`/api/users/profile/${userId}`);
+  },
+
+  getConversations: async () => {
+    return request('/api/users/conversations');
+  },
+
+  sendMessage: async (data: {
+    receiverId: string;
+    message: string;
+    tradeId?: string;
+  }) => {
+    return request('/api/users/messages/send', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getMessages: async (userId: string) => {
+    return request(`/api/users/messages/${userId}`);
   },
 
   search: async (filters?: {
@@ -194,6 +236,45 @@ export const userAPI = {
     
     const query = params.toString();
     return request(`/api/users/search${query ? `?${query}` : ''}`);
+  },
+
+  semanticSearch: async (query: string, filters?: {
+    categoria?: string;
+    ubicacion?: string;
+    estado?: string;
+    n?: number;
+  }) => {
+    const params = new URLSearchParams();
+    params.append('query', query);
+    if (filters?.categoria) params.append('category', filters.categoria);
+    if (filters?.ubicacion) params.append('ubicacion', filters.ubicacion);
+    if (filters?.estado) params.append('estado', filters.estado);
+    if (filters?.n) params.append('n', filters.n.toString());
+    
+    return request(`/api/users/semantic-search?${params.toString()}`);
+  },
+};
+
+// ==================== CALIFICACIONES ====================
+export const ratingsAPI = {
+  create: async (data: {
+    tradeId: string;
+    ratedUserId: string;
+    rating: number;
+    comment?: string;
+  }) => {
+    return request('/api/ratings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  getUserRatings: async (userId: string) => {
+    return request(`/api/ratings/${userId}`);
+  },
+  
+  checkRatingStatus: async (tradeId: string) => {
+    return request(`/api/ratings/trade/${tradeId}/status`);
   },
 };
 

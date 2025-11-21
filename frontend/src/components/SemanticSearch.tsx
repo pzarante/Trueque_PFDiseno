@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Search, SlidersHorizontal, X, Sparkles, TrendingUp } from "lucide-react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -10,12 +10,15 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
+import { userAPI, productAPI } from "../services/api";
+import { toast } from "sonner";
 
 interface SemanticSearchProps {
   publishedProducts: Product[];
   onViewProduct: (product: Product) => void;
   currentUserId?: string;
   onToggleFavorite?: (productId: string) => void;
+  userFavorites?: string[];
 }
 
 const CATEGORIES = ["Todos", "Electrónica", "Deportes", "Música", "Libros", "Hogar", "Moda", "Arte", "Juguetes", "Otros"];
@@ -130,13 +133,15 @@ function calculateSemanticSimilarity(query: string, product: Product): SearchRes
   };
 }
 
-export function SemanticSearch({ publishedProducts, onViewProduct, currentUserId, onToggleFavorite }: SemanticSearchProps) {
+export function SemanticSearch({ publishedProducts, onViewProduct, currentUserId, onToggleFavorite, userFavorites = [] }: SemanticSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [selectedLocation, setSelectedLocation] = useState("Todas");
   const [selectedCondition, setSelectedCondition] = useState("Todas");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
   
   const { themeColor } = useThemeColor();
   const gradientClasses = getGradientClasses(themeColor);
@@ -144,39 +149,208 @@ export function SemanticSearch({ publishedProducts, onViewProduct, currentUserId
   const accentBgClasses = getAccentBgClasses(themeColor);
   const textClasses = getTextClasses(themeColor);
 
-  // Calcular resultados de búsqueda semántica
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return [];
+  const transformProductFromRoble = (p: any): Product => {
+    let images: string[] = [];
+    try {
+      if (p.imagenes) {
+        const imgData = typeof p.imagenes === 'string' ? JSON.parse(p.imagenes) : p.imagenes;
+        images = Array.isArray(imgData) 
+          ? imgData.map((img: any) => {
+              if (typeof img === 'string') {
+                // Si es una string que parece una URL completa, usarla directamente
+                if (img.startsWith('http://') || img.startsWith('https://')) {
+                  return img;
+                }
+                // Si es una string que empieza con /, agregar el prefijo del servidor
+                if (img.startsWith('/')) {
+                  return `http://localhost:3000${img}`;
+                }
+                // Si es solo un filename, construir la URL usando productAPI
+                return productAPI.getImage(img);
+              }
+              // Si es un objeto con url
+              if (img.url) {
+                return img.url.startsWith('/') ? `http://localhost:3000${img.url}` : (img.url.startsWith('http') ? img.url : `http://localhost:3000${img.url}`);
+              }
+              // Si es un objeto con filename
+              if (img.filename) {
+                return productAPI.getImage(img.filename);
+              }
+              // Si no tiene estructura conocida, retornar como string
+              return typeof img === 'string' ? img : "";
+            })
+          : typeof p.imagenes === 'string' 
+            ? (() => {
+                try {
+                  const parsed = JSON.parse(p.imagenes);
+                  if (Array.isArray(parsed)) {
+                    return parsed.map((img: any) => {
+                      if (img.url) return `http://localhost:3000${img.url}`;
+                      if (img.filename) return productAPI.getImage(img.filename);
+                      return img;
+                    });
+                  }
+                } catch {
+                  // Si no es JSON válido, tratarlo como URL directa o filename
+                  if (p.imagenes.startsWith('http://') || p.imagenes.startsWith('https://')) {
+                    return [p.imagenes];
+                  }
+                  if (p.imagenes.startsWith('/')) {
+                    return [`http://localhost:3000${p.imagenes}`];
+                  }
+                  return [productAPI.getImage(p.imagenes)];
+                }
+                return [];
+              })()
+            : [];
+      }
+    } catch (e) {
+      console.error("Error parsing images:", e);
+      // Fallback: intentar usar imagenes directamente si hay error
+      if (p.imagenes && typeof p.imagenes === 'string') {
+        images = p.imagenes.startsWith('http') || p.imagenes.startsWith('/') 
+          ? [p.imagenes.startsWith('/') ? `http://localhost:3000${p.imagenes}` : p.imagenes]
+          : [productAPI.getImage(p.imagenes)];
+      }
     }
 
-    // Obtener todos los productos publicados
-    const allProducts = publishedProducts.filter(p => p.status === "published");
+    const user = p.usuario;
+
+    return {
+      id: p._id,
+      title: p.nombre,
+      description: p.comentarioNLP || p.descripcion || "",
+      category: p.categoria,
+      image: images[0] || "",
+      images: images,
+      location: p.ubicacion || "",
+      ownerName: user?.name || "Usuario",
+      ownerUserId: p.oferenteID || "",
+      condition: "Bueno",
+      interestedIn: p.condicionesTrueque ? [p.condicionesTrueque] : [],
+      status: p.estado === "publicado" || p.estado === "published" ? "Publicada" : 
+              p.estado === "pausado" || p.estado === "paused" ? "Pausada" : 
+              "Borrador",
+      available: p.activo !== false,
+      createdAt: p.fechaCreacion || new Date().toISOString(),
+    };
+  };
+
+  const performSemanticSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setLoading(true);
+    setHasSearched(true);
     
-    // Calcular similitud para cada producto
-    const results = allProducts.map(product => 
-      calculateSemanticSimilarity(searchQuery, product)
-    );
-    
-    // Filtrar por similitud mínima y otros filtros
-    let filtered = results.filter(result => {
-      const hasMinSimilarity = result.similarityScore > 0;
-      const matchesCategory = selectedCategory === "Todos" || result.category === selectedCategory;
-      const matchesLocation = selectedLocation === "Todas" || result.location.includes(selectedLocation);
-      const matchesCondition = selectedCondition === "Todas" || result.condition === selectedCondition;
+    try {
+      const response = await userAPI.semanticSearch(searchQuery, {
+        categoria: selectedCategory !== "Todos" ? selectedCategory : undefined,
+        ubicacion: selectedLocation !== "Todas" ? selectedLocation : undefined,
+        estado: "publicado",
+        n: 50
+      }) as { data: any[] };
+
+      const productsData = response.data || [];
       
-      return hasMinSimilarity && matchesCategory && matchesLocation && matchesCondition;
-    });
-    
-    // Ordenar por score de similitud
-    filtered.sort((a, b) => b.similarityScore - a.similarityScore);
-    
-    return filtered;
-  }, [searchQuery, publishedProducts, selectedCategory, selectedLocation, selectedCondition]);
+      const transformedProducts = productsData.map((p: any) => {
+        const product = transformProductFromRoble(p);
+        const similarityScore = p.similarityScore || 0;
+        
+        const queryLower = searchQuery.toLowerCase();
+        const words = queryLower.split(/\s+/).filter(word => word.length > 2);
+        const matchedKeywords: string[] = [];
+        
+        words.forEach(word => {
+          if (product.title.toLowerCase().includes(word)) {
+            matchedKeywords.push(word);
+          }
+          if (product.description.toLowerCase().includes(word)) {
+            matchedKeywords.push(word);
+          }
+          if (product.category.toLowerCase().includes(word)) {
+            matchedKeywords.push(word);
+          }
+        });
+        
+        let affinityLevel: "high" | "medium" | "low" = "low";
+        if (similarityScore >= 70) {
+          affinityLevel = "high";
+        } else if (similarityScore >= 40) {
+          affinityLevel = "medium";
+        }
+        
+        return {
+          ...product,
+          similarityScore: Math.min(100, similarityScore),
+          matchedKeywords: [...new Set(matchedKeywords)],
+          affinityLevel
+        } as SearchResult;
+      });
+
+      const filtered = transformedProducts.filter((result: SearchResult) => {
+        const matchesCategory = selectedCategory === "Todos" || 
+          result.category?.toLowerCase().includes(selectedCategory.toLowerCase()) ||
+          selectedCategory.toLowerCase().includes(result.category?.toLowerCase() || "");
+        
+        const matchesLocation = selectedLocation === "Todas" || 
+          (result.location && result.location.toLowerCase().includes(selectedLocation.toLowerCase())) ||
+          (selectedLocation.toLowerCase().includes(result.location?.toLowerCase() || ""));
+        
+        const matchesCondition = selectedCondition === "Todas" || 
+          result.condition?.toLowerCase().includes(selectedCondition.toLowerCase()) ||
+          selectedCondition.toLowerCase().includes(result.condition?.toLowerCase() || "");
+        
+        return matchesCategory && matchesLocation && matchesCondition;
+      });
+      
+      filtered.sort((a: SearchResult, b: SearchResult) => b.similarityScore - a.similarityScore);
+      setSearchResults(filtered);
+    } catch (error: any) {
+      console.error("Error en búsqueda semántica:", error);
+      toast.error("Error en búsqueda semántica", {
+        description: error.message || "No se pudo realizar la búsqueda. Usando búsqueda local...",
+      });
+      
+      const allProducts = publishedProducts.filter(p => p.status === "Publicada");
+      const results = allProducts.map(product => calculateSemanticSimilarity(searchQuery, product));
+      let filtered = results.filter(result => {
+        const matchesCategory = selectedCategory === "Todos" || 
+          result.category?.toLowerCase().includes(selectedCategory.toLowerCase()) ||
+          selectedCategory.toLowerCase().includes(result.category?.toLowerCase() || "");
+        const matchesLocation = selectedLocation === "Todas" || 
+          (result.location && result.location.toLowerCase().includes(selectedLocation.toLowerCase())) ||
+          (selectedLocation.toLowerCase().includes(result.location?.toLowerCase() || ""));
+        const matchesCondition = selectedCondition === "Todas" || 
+          result.condition?.toLowerCase().includes(selectedCondition.toLowerCase()) ||
+          selectedCondition.toLowerCase().includes(result.condition?.toLowerCase() || "");
+        return result.similarityScore > 0 && matchesCategory && matchesLocation && matchesCondition;
+      });
+      filtered.sort((a: SearchResult, b: SearchResult) => b.similarityScore - a.similarityScore);
+      setSearchResults(filtered);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = () => {
-    setHasSearched(true);
+    if (!searchQuery.trim()) {
+      toast.error("Ingresa un término de búsqueda");
+      return;
+    }
+    performSemanticSearch();
   };
+
+  useEffect(() => {
+    if (hasSearched && searchQuery.trim()) {
+      const timeoutId = setTimeout(() => {
+        performSemanticSearch();
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedCategory, selectedLocation, selectedCondition]);
 
   const clearFilters = () => {
     setSelectedCategory("Todos");
@@ -205,18 +379,6 @@ export function SemanticSearch({ publishedProducts, onViewProduct, currentUserId
       default:
         return null;
     }
-  };
-
-  const highlightKeywords = (text: string, keywords: string[]) => {
-    if (!keywords.length) return text;
-    
-    let result = text;
-    keywords.forEach(keyword => {
-      const regex = new RegExp(`(${keyword})`, 'gi');
-      result = result.replace(regex, `<mark class="bg-yellow-200 dark:bg-yellow-900/50 px-1 rounded">$1</mark>`);
-    });
-    
-    return result;
   };
 
   return (
@@ -438,86 +600,50 @@ export function SemanticSearch({ publishedProducts, onViewProduct, currentUserId
               </div>
             </div>
 
-            {searchResults.length > 0 ? (
-              <div className="space-y-6">
+            {loading ? (
+              <Card className="p-12 text-center">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center animate-pulse">
+                  <Search className="w-10 h-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl mb-2">Buscando...</h3>
+                <p className="text-muted-foreground">
+                  Realizando búsqueda semántica con IA
+                </p>
+              </Card>
+            ) : searchResults.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {searchResults.map((result, index) => (
                   <motion.div
                     key={result.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.05 }}
+                    className="relative"
                   >
-                    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                      <div className="flex flex-col md:flex-row gap-6 p-6">
-                        {/* Imagen */}
-                        <div className="w-full md:w-48 h-48 flex-shrink-0">
-                          <img
-                            src={result.image}
-                            alt={result.title}
-                            className="w-full h-full object-cover rounded-lg"
-                          />
-                        </div>
-
-                        {/* Contenido */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-4 mb-3">
-                            <div className="flex-1">
-                              <h3 
-                                className="text-xl mb-2"
-                                dangerouslySetInnerHTML={{ 
-                                  __html: highlightKeywords(result.title, result.matchedKeywords) 
-                                }}
-                              />
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                {getAffinityBadge(result.affinityLevel)}
-                                <Badge variant="outline">{result.category}</Badge>
-                                <Badge variant="outline">{result.condition}</Badge>
-                                <Badge className={`${textClasses}`}>
-                                  {result.similarityScore}% relevancia
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-
-                          <p 
-                            className="text-muted-foreground mb-4 line-clamp-2"
-                            dangerouslySetInnerHTML={{ 
-                              __html: highlightKeywords(result.description, result.matchedKeywords) 
-                            }}
-                          />
-
-                          {result.matchedKeywords.length > 0 && (
-                            <div className="mb-4">
-                              <p className="text-xs text-muted-foreground mb-2">Coincidencias encontradas:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {result.matchedKeywords.slice(0, 5).map((keyword, idx) => (
-                                  <Badge key={idx} variant="secondary" className="text-xs">
-                                    {keyword}
-                                  </Badge>
-                                ))}
-                                {result.matchedKeywords.length > 5 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    +{result.matchedKeywords.length - 5} más
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-4">
-                            <Button
-                              onClick={() => onViewProduct(result)}
-                              className={`bg-gradient-to-r ${gradientClasses} min-h-[44px]`}
-                            >
-                              Ver Detalles
-                            </Button>
-                            <div className="text-sm text-muted-foreground">
-                              📍 {result.location}
-                            </div>
-                          </div>
-                        </div>
+                    {/* Affinity Badge */}
+                    {result.affinityLevel === "high" && result.similarityScore >= 70 && (
+                      <div className="absolute top-2 left-2 z-10">
+                        {getAffinityBadge(result.affinityLevel)}
                       </div>
-                    </Card>
+                    )}
+                    
+                    {/* Similarity Score Badge */}
+                    {result.similarityScore >= 50 && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <Badge className={`bg-gradient-to-r ${gradientClasses} text-white border-0 shadow-lg`}>
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          {result.similarityScore}%
+                        </Badge>
+                      </div>
+                    )}
+
+                    <ProductCard
+                      product={result}
+                      onViewDetails={onViewProduct}
+                      currentUserId={currentUserId}
+                      isFavorited={userFavorites?.includes(result.id) || false}
+                      onToggleFavorite={onToggleFavorite}
+                    />
                   </motion.div>
                 ))}
               </div>

@@ -170,8 +170,11 @@ export function Marketplace({
   const gradientClasses = getGradientClasses(themeColor);
   const shadowClasses = getShadowClasses(themeColor);
 
-  // Combine mock products with published products - only show published products
-  const allProducts = [...publishedProducts.filter(p => p.status === "Publicada"), ...MOCK_PRODUCTS];
+  // Usar productos publicados desde Roble (ya están filtrados por estado Publicada)
+  // Solo agregar productos mock si no hay suficientes productos reales
+  const allProducts = publishedProducts.length > 0 
+    ? publishedProducts.filter(p => p.status === "Publicada")
+    : MOCK_PRODUCTS;
 
   const filteredProducts = allProducts.filter((product) => {
     const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

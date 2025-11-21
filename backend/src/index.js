@@ -3,16 +3,27 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import productRoutes from './routes/offertsRoutes.js';
 import truequesRoutes from './routes/truequesRoutes.js';
+import ratingsRoutes from './routes/ratingsRoutes.js';
 
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    methods: ["GET", "POST"]
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -825,6 +836,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/trueques', truequesRoutes);
+app.use('/api/ratings', ratingsRoutes);
 
 app.get('/', (req, res) => {
   res.json({ 
@@ -839,7 +851,193 @@ app.get('/', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-  console.log(`Documentación Swagger: http://localhost:${PORT}/api-docs`);
+const connectedUsers = new Map();
+
+io.on('connection', (socket) => {
+  console.log('Usuario conectado:', socket.id);
+
+  socket.on('user:connect', (userId) => {
+    connectedUsers.set(userId, socket.id);
+    socket.userId = userId;
+    console.log(`Usuario ${userId} conectado en socket ${socket.id}`);
+  });
+
+  socket.on('message:send', async (data) => {
+    try {
+      const { receiverId, senderId, message, tradeId } = data;
+      
+      const axios = (await import('axios')).default;
+      const { getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } = await import('./controllers/storeToken.js');
+      
+      let token = getAccessToken();
+      let refreshToken = getRefreshToken();
+      
+      try {
+        const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token", {
+          refreshToken: `${refreshToken}`
+        });
+        
+        token = ref.data.accessToken;
+        refreshToken = ref.data.refreshToken;
+        
+        setAccessToken(token);
+        setRefreshToken(refreshToken);
+        
+        const messageData = {
+          id_remitente: senderId,
+          id_destinatario: receiverId,
+          mensaje: message,
+          id_trueque: tradeId || null,
+          fecha_envio: new Date().toISOString(),
+          leido: false
+        };
+        
+        let messageRes;
+        let messageId;
+        
+        try {
+          messageRes = await axios.post(
+            'https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/insert',
+            {
+              tableName: 'mensajes',
+              records: [messageData]
+            },
+            {
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+          messageId = messageRes.data?.inserted?.[0] || Date.now().toString();
+        } catch (insertError) {
+          if (insertError.response?.status === 403 || insertError.response?.statusCode === 403) {
+            console.log("Token de usuario sin permisos, usando token de admin para insertar mensaje (socket)");
+            try {
+              const adminLogin = await axios.post(
+                'https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/login',
+                {
+                  email: "admin@swaply.com",
+                  password: "12345@Dm"
+                }
+              );
+              const adminToken = adminLogin.data.accessToken;
+              
+              messageRes = await axios.post(
+                'https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/insert',
+                {
+                  tableName: 'mensajes',
+                  records: [messageData]
+                },
+                {
+                  headers: { Authorization: `Bearer ${adminToken}` }
+                }
+              );
+              messageId = messageRes.data?.inserted?.[0] || Date.now().toString();
+            } catch (adminError) {
+              console.error("Error al insertar mensaje con token de admin (socket):", adminError.response?.data || adminError.message);
+              throw adminError;
+            }
+          } else {
+            throw insertError;
+          }
+        }
+        
+        try {
+          const nlpModelUrl = process.env.NLP_MODEL_URL || 'http://localhost:5000';
+          await axios.post(`${nlpModelUrl}/nlp/process_message`, {
+            message_id: messageId,
+            sender_id: senderId,
+            receiver_id: receiverId,
+            message: message,
+            trade_id: tradeId || null,
+            conversation_id: `${senderId}_${receiverId}`
+          });
+        } catch (nlpError) {
+          console.error("Error procesando mensaje con NLP (socket):", nlpError.message);
+        }
+        
+        const savedMessage = {
+          id: messageId,
+          _id: messageId,
+          senderId,
+          receiverId,
+          message: message,
+          mensaje: message,
+          tradeId,
+          timestamp: messageData.fecha_envio,
+          fecha_envio: messageData.fecha_envio,
+        };
+        
+        const receiverSocketId = connectedUsers.get(receiverId);
+        
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit('message:receive', savedMessage);
+        }
+        
+        socket.emit('message:sent', {
+          ...savedMessage,
+          receiverId: receiverId,
+        });
+      } catch (dbError) {
+        console.error('Error guardando mensaje en DB:', dbError);
+        socket.emit('message:error', { 
+          error: 'Error al guardar mensaje en la base de datos',
+          details: dbError.message 
+        });
+      }
+    } catch (error) {
+      console.error('Error enviando mensaje:', error);
+      socket.emit('message:error', { error: 'Error al enviar mensaje' });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    if (socket.userId) {
+      connectedUsers.delete(socket.userId);
+      console.log(`Usuario ${socket.userId} desconectado`);
+    }
+    console.log('Usuario desconectado:', socket.id);
+  });
+});
+
+async function initializeBackendToken() {
+  try {
+    const axios = (await import('axios')).default;
+    const { setAccessToken, setRefreshToken, setEmail } = await import('./controllers/storeToken.js');
+    
+    const loginRes = await axios.post(
+      'https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/login',
+      {
+        email: "admin@swaply.com",
+        password: "12345@Dm"
+      }
+    );
+    
+    setAccessToken(loginRes.data.accessToken);
+    setRefreshToken(loginRes.data.refreshToken);
+    setEmail("admin@swaply.com");
+    
+    console.log('Token de admin inicializado correctamente');
+  } catch (error) {
+    console.error('Error inicializando token de admin:', error.message);
+    console.log('El servidor seguirá funcionando, pero algunas operaciones pueden fallar hasta que un usuario inicie sesión');
+  }
+}
+
+initializeBackendToken().then(() => {
+  httpServer.listen(PORT, () => {
+    console.log(`Servidor corriendo en puerto ${PORT}`);
+    console.log(`Documentación Swagger: http://localhost:${PORT}/api-docs`);
+    console.log(`Socket.IO servidor activo`);
+  }).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Error: El puerto ${PORT} ya está en uso.`);
+      console.error(`Solucion: Get-NetTCPConnection -LocalPort ${PORT} -State Listen | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force }`);
+      process.exit(1);
+    } else {
+      console.error('Error al iniciar el servidor:', err);
+      process.exit(1);
+    }
+  });
+}).catch((err) => {
+  console.error('Error inicializando el backend:', err);
+  process.exit(1);
 });

@@ -71,9 +71,9 @@ export function useAuth() {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, captchaToken?: string) => {
     try {
-      const response = await authAPI.login(email, password);
+      const response = await authAPI.login(email, password, captchaToken);
       
       // Obtener información del usuario después del login
       let userData;

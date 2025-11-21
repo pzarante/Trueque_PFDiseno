@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Edit, MapPin, Mail, Calendar, Package, Heart, Star, Pencil, Trash2, ArrowLeft, Moon, Sun } from "lucide-react";
+import { Edit, MapPin, Mail, Calendar, Package, Heart, Star, Pencil, Trash2, ArrowLeft, MessageCircle, Quote, User as UserIcon, ArrowLeftRight } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ProductCard, Product } from "./ProductCard";
 import { Separator } from "./ui/separator";
 import { EditProfile, ProfileData } from "./EditProfile";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { userAPI, ratingsAPI } from "../services/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,8 +21,8 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { useThemeColor, getGradientClasses, getShadowClasses } from "../hooks/useThemeColor";
-import { User, Activity } from "../App";
-import { ThemeColorPicker, ThemeColor } from "./ThemeColorPicker";
+import { User } from "../App";
+import { ThemeColor } from "./ThemeColorPicker";
 
 interface ProfileProps {
   user: User;
@@ -32,6 +33,7 @@ interface ProfileProps {
   onDeleteProduct?: (productId: string) => void;
   onEditProduct?: (product: Product) => void;
   onDeactivateAccount?: () => void;
+  onUpdateProfile?: (profileData: ProfileData) => Promise<void>;
   allProducts?: Product[];
   isViewingOther?: boolean;
   onNavigateBack?: () => void;
@@ -39,32 +41,110 @@ interface ProfileProps {
   onToggleTheme?: () => void;
   themeColor?: ThemeColor;
   onColorChange?: (color: ThemeColor) => void;
+  onContactUser?: (userId: string, productId?: string) => void;
+  onToggleFavorite?: (productId: string) => void;
+  onProposeTrade?: (productId: string, proposedProductId?: string) => void;
+  currentUserId?: string;
+  currentUserFavorites?: string[];
 }
 
 export function Profile({ 
   user, 
   onViewProduct, 
   onPublishProduct,
-  publishedProducts = [],
-  onUpdateProduct,
   onDeleteProduct,
   onEditProduct,
   onDeactivateAccount,
+  onUpdateProfile,
   allProducts = [],
   isViewingOther = false,
   onNavigateBack,
-  isDarkMode = false,
-  onToggleTheme,
   themeColor = "blue",
-  onColorChange,
+  onContactUser,
+  onToggleFavorite,
+  onProposeTrade,
+  currentUserId,
+  currentUserFavorites = [],
 }: ProfileProps) {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+  const [reputation, setReputation] = useState<{ averageScore: number; completedTrades: number } | null>(null);
+  const [loadingReputation, setLoadingReputation] = useState(false);
+  const [ratings, setRatings] = useState<any[]>([]);
+  const [loadingRatings, setLoadingRatings] = useState(false);
   const { themeColor: contextThemeColor } = useThemeColor();
   const activeThemeColor = themeColor || contextThemeColor;
   const gradientClasses = getGradientClasses(activeThemeColor);
   const shadowClasses = getShadowClasses(activeThemeColor);
+
+  useEffect(() => {
+    if (!loadingReputation) {
+      if (isViewingOther && user.id) {
+        loadOtherUserReputation(user.id);
+        loadUserRatings(user.id);
+      } else if (!isViewingOther) {
+        loadReputation();
+        loadUserRatings(user.id);
+      }
+    }
+  }, [isViewingOther, user.id]);
+
+  const loadReputation = async () => {
+    if (isViewingOther) return;
+    
+    setLoadingReputation(true);
+    try {
+      const response = await userAPI.getReputation();
+      const reputationData = (response as any).data || response;
+      setReputation({
+        averageScore: reputationData.averageScore || 0,
+        completedTrades: reputationData.completedTrades || 0,
+      });
+    } catch (error) {
+      console.error("Error al cargar reputación:", error);
+      setReputation({ averageScore: 0, completedTrades: 0 });
+    } finally {
+      setLoadingReputation(false);
+    }
+  };
+
+  const loadOtherUserReputation = async (userId: string) => {
+    setLoadingReputation(true);
+    try {
+      const response = await userAPI.getProfileById(userId);
+      const profileData = (response as any).data || response;
+      if (profileData.reputation) {
+        setReputation({
+          averageScore: profileData.reputation.averageScore || 0,
+          completedTrades: profileData.reputation.completedTrades || 0,
+        });
+      } else {
+        setReputation({ averageScore: 0, completedTrades: 0 });
+      }
+    } catch (error) {
+      console.error("Error al cargar reputación del usuario:", error);
+      setReputation({ averageScore: 0, completedTrades: 0 });
+    } finally {
+      setLoadingReputation(false);
+    }
+  };
+
+  const loadUserRatings = async (userId: string) => {
+    if (!userId) return;
+    
+    setLoadingRatings(true);
+    try {
+      const response = await ratingsAPI.getUserRatings(userId);
+      const ratingsData = (response as any).data || [];
+      setRatings(ratingsData);
+    } catch (error) {
+      console.error("Error al cargar calificaciones:", error);
+      setRatings([]);
+    } finally {
+      setLoadingRatings(false);
+    }
+  };
   
   // Obtener productos del usuario
   const userProducts = allProducts.filter(p => p.ownerUserId === user.id);
@@ -75,11 +155,25 @@ export function Profile({
   // Obtener productos favoritos
   const favoritedProducts = allProducts.filter(p => user.favorites.includes(p.id));
 
-  const handleSaveProfile = (profileData: ProfileData) => {
-    toast.success("Perfil actualizado", {
-      description: "Tus cambios se han guardado exitosamente",
-    });
-    setIsEditProfileOpen(false);
+  const handleSaveProfile = async (profileData: ProfileData) => {
+    if (onUpdateProfile) {
+      try {
+        await onUpdateProfile(profileData);
+        toast.success("Perfil actualizado", {
+          description: "Tus cambios se han guardado exitosamente",
+        });
+        setIsEditProfileOpen(false);
+      } catch (error: any) {
+        toast.error("Error al actualizar perfil", {
+          description: error.message || "No se pudieron guardar los cambios",
+        });
+      }
+    } else {
+      toast.success("Perfil actualizado", {
+        description: "Tus cambios se han guardado exitosamente",
+      });
+      setIsEditProfileOpen(false);
+    }
   };
 
   const handleDeleteProduct = (productId: string) => {
@@ -144,10 +238,12 @@ export function Profile({
             <div className="flex-1 text-center sm:text-left">
               <div className="flex flex-col sm:flex-row items-center gap-3 mb-2">
                 <h1 className="text-3xl text-white">{user.name}</h1>
-                <Badge className="bg-white/20 text-white border-white/30">
-                  <Star className="w-3 h-3 mr-1 fill-white" />
-                  4.8
-                </Badge>
+                {reputation && reputation.averageScore > 0 && (
+                  <Badge className="bg-white/20 text-white border-white/30">
+                    <Star className="w-3 h-3 mr-1 fill-white" />
+                    {reputation.averageScore.toFixed(1)}
+                  </Badge>
+                )}
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-4 text-white/90 text-sm">
                 <div className="flex items-center gap-2">
@@ -165,8 +261,8 @@ export function Profile({
               </div>
             </div>
 
-            {!isViewingOther && (
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
+              {!isViewingOther ? (
                 <Button 
                   onClick={() => setIsEditProfileOpen(true)}
                   className="bg-white text-purple-600 hover:bg-white/90 min-h-[44px]"
@@ -175,8 +271,19 @@ export function Profile({
                   <Edit className="w-4 h-4 mr-2" />
                   Editar Perfil
                 </Button>
-              </div>
-            )}
+              ) : (
+                onContactUser && (
+                  <Button 
+                    onClick={() => onContactUser(user.id)}
+                    className={`bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses} min-h-[44px]`}
+                    aria-label="Contactar usuario"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Contactar
+                  </Button>
+                )
+              )}
+            </div>
           </div>
         </motion.div>
 
@@ -196,13 +303,13 @@ export function Profile({
           <StatCard
             icon={<Heart className="w-5 h-5" />}
             label="Intercambios Completados"
-            value={user.activities.filter(a => a.type === "trade" && a.title.includes("completado")).length.toString()}
+            value={reputation?.completedTrades?.toString() || user.activities.filter(a => a.type === "trade" && a.title.includes("completado")).length.toString()}
             gradientClasses={gradientClasses}
           />
           <StatCard
             icon={<Star className="w-5 h-5 fill-current" />}
             label="Valoración Media"
-            value="4.8"
+            value={reputation?.averageScore?.toFixed(1) || "0.0"}
             gradientClasses={gradientClasses}
           />
         </motion.div>
@@ -214,18 +321,21 @@ export function Profile({
           transition={{ delay: 0.2 }}
         >
           <Tabs defaultValue="products" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8">
-              <TabsTrigger value="products">Mis Productos</TabsTrigger>
-              <TabsTrigger value="favorites">Favoritos</TabsTrigger>
-              <TabsTrigger value="activity">Actividad</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 mb-8">
+              <TabsTrigger value="products">{isViewingOther ? "Productos" : "Mis Productos"}</TabsTrigger>
+              {!isViewingOther && <TabsTrigger value="favorites">Favoritos</TabsTrigger>}
+              {!isViewingOther && <TabsTrigger value="activity">Actividad</TabsTrigger>}
+              <TabsTrigger value="ratings">Calificaciones ({ratings.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="products" className="space-y-6">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h2>Mis Productos</h2>
+                  <h2>{isViewingOther ? "Productos Publicados" : "Mis Productos"}</h2>
                   <p className="text-muted-foreground">
-                    Productos que has publicado para intercambiar
+                    {isViewingOther 
+                      ? `Productos publicados por ${user.name}`
+                      : "Productos que has publicado para intercambiar"}
                   </p>
                 </div>
                 {!isViewingOther && onPublishProduct && (
@@ -250,15 +360,47 @@ export function Profile({
                         <ProductCard
                           product={product}
                           onViewDetails={onViewProduct}
-                          isOwnProduct={true}
+                          isOwnProduct={!isViewingOther}
+                          currentUserId={currentUserId}
+                          isFavorited={isViewingOther && currentUserFavorites ? (currentUserFavorites.includes(product.id) || false) : false}
+                          onToggleFavorite={isViewingOther && onToggleFavorite ? onToggleFavorite : undefined}
                         />
+                        {isViewingOther && onProposeTrade && currentUserId && allProducts && (
+                          <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 p-2">
+                            <Button
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                e.stopPropagation();
+                                const userProducts = allProducts.filter(p => 
+                                  p.ownerUserId === currentUserId && 
+                                  p.status === "Publicada" &&
+                                  p.id !== product.id
+                                );
+                                if (userProducts.length > 0) {
+                                  onProposeTrade(product.id, userProducts[0].id);
+                                  toast.success("Propuesta de intercambio enviada", {
+                                    description: `Has propuesto intercambiar "${userProducts[0].title}" por "${product.title}"`,
+                                  });
+                                } else {
+                                  toast.info("No tienes productos publicados", {
+                                    description: "Publica un producto primero para poder proponer un intercambio",
+                                  });
+                                }
+                              }}
+                              className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses} min-h-[44px]`}
+                              size="sm"
+                            >
+                              <ArrowLeftRight className="w-4 h-4 mr-2" />
+                              Proponer Trueque
+                            </Button>
+                          </div>
+                        )}
                         {!isViewingOther && (
                           <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                             <Button
                               size="icon"
                               variant="secondary"
                               className="w-9 h-9 rounded-full shadow-lg bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black dark:hover:bg-gray-200"
-                              onClick={(e) => {
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 e.stopPropagation();
                                 onEditProduct && onEditProduct(product);
                               }}
@@ -270,7 +412,7 @@ export function Profile({
                               size="icon"
                               variant="secondary"
                               className="w-9 h-9 rounded-full shadow-lg bg-white text-black hover:bg-red-500 hover:text-white dark:bg-white dark:text-black dark:hover:bg-red-500 dark:hover:text-white"
-                              onClick={(e) => {
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 e.stopPropagation();
                                 setProductToDelete(product.id);
                               }}
@@ -303,7 +445,7 @@ export function Profile({
                             size="icon"
                             variant="secondary"
                             className="w-9 h-9 rounded-full shadow-lg bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black dark:hover:bg-gray-200"
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                               e.stopPropagation();
                               onEditProduct && onEditProduct(product);
                             }}
@@ -315,7 +457,7 @@ export function Profile({
                             size="icon"
                             variant="secondary"
                             className="w-9 h-9 rounded-full shadow-lg bg-white text-black hover:bg-red-500 hover:text-white dark:bg-white dark:text-black dark:hover:bg-red-500 dark:hover:text-white"
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                               e.stopPropagation();
                               setProductToDelete(product.id);
                             }}
@@ -347,7 +489,7 @@ export function Profile({
                             size="icon"
                             variant="secondary"
                             className="w-9 h-9 rounded-full shadow-lg bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black dark:hover:bg-gray-200"
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                               e.stopPropagation();
                               onEditProduct && onEditProduct(product);
                             }}
@@ -359,7 +501,7 @@ export function Profile({
                             size="icon"
                             variant="secondary"
                             className="w-9 h-9 rounded-full shadow-lg bg-white text-black hover:bg-red-500 hover:text-white dark:bg-white dark:text-black dark:hover:bg-red-500 dark:hover:text-white"
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                               e.stopPropagation();
                               setProductToDelete(product.id);
                             }}
@@ -455,6 +597,83 @@ export function Profile({
                 </div>
               )}
             </TabsContent>
+
+            <TabsContent value="ratings" className="space-y-6">
+              <div className="mb-6">
+                <h2>Calificaciones Recibidas</h2>
+                <p className="text-muted-foreground">
+                  Comentarios y calificaciones de otros usuarios sobre tus trueques
+                </p>
+              </div>
+              {loadingRatings ? (
+                <div className="text-center py-20">
+                  <Package className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50 animate-pulse" />
+                  <p className="text-muted-foreground">Cargando calificaciones...</p>
+                </div>
+              ) : ratings.length > 0 ? (
+                <div className="space-y-4">
+                  {ratings.map((rating) => (
+                    <motion.div
+                      key={rating.id || rating._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-card border border-border rounded-xl p-6 hover:shadow-lg transition-all"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className={`w-12 h-12 bg-gradient-to-br ${gradientClasses} rounded-full flex items-center justify-center text-white shadow-lg flex-shrink-0`}>
+                          <UserIcon className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="font-semibold">{rating.rater?.name || "Usuario"}</p>
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 ${
+                                    i < (rating.rating || 0)
+                                      ? "fill-primary text-primary"
+                                      : "text-muted-foreground"
+                                  }`}
+                                />
+                              ))}
+                              <span className="text-sm text-muted-foreground ml-1">
+                                {rating.rating || 0}/5
+                              </span>
+                            </div>
+                          </div>
+                          {rating.comment && (
+                            <div className="flex items-start gap-2 mt-2">
+                              <Quote className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
+                              <p className="text-sm text-muted-foreground italic">{rating.comment}</p>
+                            </div>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-3">
+                            {new Date(rating.createdAt || rating.fecha_creacion || Date.now()).toLocaleDateString("es-CO", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20 bg-card border border-border rounded-2xl">
+                  <Star className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="mb-2">
+                    {isViewingOther ? "Este usuario no tiene calificaciones" : "Aún no tienes calificaciones"}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    {isViewingOther 
+                      ? "Las calificaciones aparecerán aquí cuando otros usuarios califiquen sus trueques"
+                      : "Las calificaciones aparecerán aquí cuando completes trueques y otros usuarios te califiquen"}
+                  </p>
+                </div>
+              )}
+            </TabsContent>
           </Tabs>
         </motion.div>
 
@@ -483,7 +702,7 @@ export function Profile({
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={productToDelete !== null} onOpenChange={(open) => !open && setProductToDelete(null)}>
+      <AlertDialog open={productToDelete !== null} onOpenChange={(open: boolean) => !open && setProductToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>

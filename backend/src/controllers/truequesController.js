@@ -73,7 +73,7 @@ export const createTradeProposal = async (req, res) => {
           status: 'pendiente',
           confirmacion_oferente: 'pendiente',      // Dueño del producto visto
           confirmacion_destinatario: 'pendiente',  // Dueño del producto ofrecido
-          fecha_creacion: new Date().toISOString().slice(0, 10),
+          fecha_creacion: new Date().toISOString(),
           fecha_confirmacion: null
         }]
       },
@@ -161,16 +161,23 @@ export const confirmTrade = async (req, res) => {
 
     let nuevoEstado = trade.status;
 
+    const fechaActual = new Date().toISOString();
+    
     if (accion === 'rechazar') {
       nuevoEstado = 'rechazado';
       updates.status = 'rechazado';
+      updates.fecha_cancelacion = fechaActual;
+      if (!trade.fecha_rechazo) {
+        updates.fecha_rechazo = fechaActual;
+      }
     } else if (accion === 'aceptar') {
       const otraConfirmacion = esUsuario1 ? trade.confirmacion_destinatario : trade.confirmacion_oferente;
       
       if (otraConfirmacion === 'aceptado') {
         nuevoEstado = 'completado';
         updates.status = 'completado';
-        updates.fecha_confirmacion = new Date().toISOString().slice(0, 10);
+        updates.fecha_confirmacion = fechaActual;
+        updates.fecha_cierre = fechaActual;
       } else {
         nuevoEstado = 'pendiente';
       }
@@ -201,10 +208,30 @@ export const confirmTrade = async (req, res) => {
       mensaje = 'Has rechazado el trueque.';
     }
 
+    const tradeUpdated = await axios.get(
+      "https://roble-api.openlab.uninorte.edu.co/database/trueque_pfdiseno_b28d4fbe65/read",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: { tableName: "trueques", _id: tradeId }
+      }
+    );
+    
+    const tradeData = tradeUpdated.data[0];
+    
     res.status(200).json({ 
       message: mensaje,
       tradeId: tradeId,
-      status: nuevoEstado
+      status: nuevoEstado,
+      data: {
+        ...tradeData,
+        id_producto_oferente: tradeData.id_porductOferente || trade.id_porductOferente,
+        id_producto_destinatario: tradeData.id_productDestinatario || trade.id_productDestinatario,
+        id_usuario1: tradeData.id_usuario1 || trade.id_usuario1,
+        id_usuario2: tradeData.id_usuario2 || trade.id_usuario2,
+        fecha_confirmacion: tradeData.fecha_confirmacion || null,
+        fecha_cancelacion: tradeData.fecha_cancelacion || tradeData.fecha_rechazo || null,
+        fecha_cierre: tradeData.fecha_cierre || null
+      }
     });
   } catch (error) {
     console.error(" Error al confirmar trueque:", error.response?.data || error.message);

@@ -64,14 +64,22 @@ export interface Notification {
 
 export interface Trade {
   id: string;
-  user1Id: string;
-  user2Id: string;
-  product1Id: string;
-  product2Id: string;
-  status: "pending" | "accepted" | "rejected" | "completed" | "cancelled";
-  createdAt: string;
-  initiatorId: string;
-  receiverId: string;
+  _id?: string;
+  user1Id?: string;
+  user2Id?: string;
+  product1Id?: string;
+  product2Id?: string;
+  status: "pending" | "accepted" | "rejected" | "completed" | "cancelled" | "pendiente" | "completado" | "rechazado";
+  createdAt?: string;
+  initiatorId?: string;
+  receiverId?: string;
+  fecha_creacion?: string;
+  fecha_confirmacion?: string;
+  fecha_cancelacion?: string;
+  fecha_rechazo?: string;
+  fecha_cierre?: string;
+  confirmacion_oferente?: string;
+  confirmacion_destinatario?: string;
 }
 
 const INITIAL_NOTIFICATIONS: Notification[] = [
@@ -118,8 +126,87 @@ export default function App() {
   const { user: authUser, loading: authLoading, isAuthenticated, login: authLogin, logout: authLogout, setUser: setAuthUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
+  const [viewingUser, setViewingUser] = useState<User | null>(null);
+  const [viewingUserProducts, setViewingUserProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [publishedProducts, setPublishedProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  // Función para transformar productos de Roble al formato del frontend
+  const transformProductFromRoble = (p: any): Product => {
+    let images: string[] = [];
+    try {
+      if (p.imagenes) {
+        const imgData = typeof p.imagenes === 'string' ? JSON.parse(p.imagenes) : p.imagenes;
+        images = Array.isArray(imgData) 
+          ? imgData.map((img: any) => {
+              if (img.url) return `http://localhost:3000${img.url}`;
+              if (img.filename) return productAPI.getImage(img.filename);
+              return img;
+            })
+          : [p.imagenes];
+      }
+    } catch (e) {
+      console.error("Error parsing images:", e);
+    }
+
+    const user = p.usuario;
+
+    return {
+      id: p._id,
+      title: p.nombre,
+      description: p.comentarioNLP || p.descripcion || "",
+      category: p.categoria,
+      image: images[0] || "",
+      images: images,
+      location: p.ubicacion || "",
+      ownerName: user?.name || "Usuario",
+      ownerUserId: p.oferenteID || "",
+      condition: "Bueno",
+      interestedIn: p.condicionesTrueque ? [p.condicionesTrueque] : [],
+      status: p.estado === "publicado" || p.estado === "published" ? "Publicada" : 
+              p.estado === "pausado" || p.estado === "paused" ? "Pausada" : 
+              "Borrador",
+      available: p.activo !== false,
+      createdAt: p.fechaCreacion || new Date().toISOString(),
+    };
+  };
+
+  // Función para cargar productos publicados desde Roble
+  const loadPublishedProducts = async () => {
+    if (!user && !localStorage.getItem('token')) return; // No cargar si no hay usuario autenticado
+    
+    setLoadingProducts(true);
+    try {
+      const { userAPI } = await import('./services/api');
+      const response = await userAPI.getAllPublishedProducts() as any;
+      const productsData = response.data || [];
+      
+      // Transformar productos al formato del frontend
+      const transformedProducts = productsData.map((p: any) => transformProductFromRoble(p)).filter((p: Product) => 
+        p.status === "published" || p.status === "Publicada"
+      );
+      
+      // Filtrar solo productos publicados y actualizar estado
+      const published = transformedProducts.filter((p: Product) => 
+        p.status === "Publicada"
+      );
+      
+      setPublishedProducts(published);
+      
+      // También actualizar localStorage como backup
+      localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(published));
+    } catch (error: any) {
+      console.error("Error al cargar productos publicados:", error);
+      // Si falla, mantener productos del localStorage como fallback
+      const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+      if (savedProducts) {
+        setPublishedProducts(JSON.parse(savedProducts));
+      }
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
@@ -139,8 +226,12 @@ export default function App() {
   useEffect(() => {
     if (authUser) {
       setUser(authUser);
+      // Cargar productos publicados cuando el usuario se autentica
+      loadPublishedProducts();
     } else if (!authLoading && !isAuthenticated) {
       setUser(null);
+      // Limpiar productos cuando el usuario cierra sesión
+      setPublishedProducts([]);
     }
   }, [authUser, authLoading, isAuthenticated]);
 
@@ -198,8 +289,11 @@ export default function App() {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allUsers));
   }, [allUsers]);
 
+  // Los productos se guardan en localStorage como backup, pero la fuente principal es Roble
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(publishedProducts));
+    if (publishedProducts.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(publishedProducts));
+    }
   }, [publishedProducts]);
 
   useEffect(() => {
@@ -274,7 +368,7 @@ export default function App() {
     }
   };
 
-  const handleLogin = async (email: string, password: string, isAdmin: boolean) => {
+  const handleLogin = async (email: string, password: string, isAdmin: boolean, captchaToken?: string) => {
     if (isAdmin) {
       // Validar credenciales de administrador (mantener lógica local para admin)
       if (email === "admin@swaply.com" && password === "admin123") {
@@ -301,11 +395,13 @@ export default function App() {
       }
     } else {
       try {
-        const result = await authLogin(email, password);
+        const result = await authLogin(email, password, captchaToken);
         
         if (result.success && result.user) {
           setUser(result.user);
           setCurrentPage("marketplace");
+          // Cargar productos publicados desde Roble después del login
+          await loadPublishedProducts();
           toast.success("¡Bienvenido de vuelta!", {
             description: "Has iniciado sesión exitosamente",
           });
@@ -511,9 +607,9 @@ export default function App() {
     }
   };
 
-  const handleRegister = async (name: string, email: string, password: string, city: string) => {
+  const handleRegister = async (name: string, email: string, password: string, city: string, captchaToken?: string) => {
     try {
-      const response = await authAPI.register({ name, email, password, ciudad: city });
+      const response = await authAPI.register({ name, email, password, ciudad: city, captchaToken });
       
       // Verificar si hay información sobre verificación de email
       const emailVerification = (response as any)?.emailVerification;
@@ -615,7 +711,8 @@ export default function App() {
 
     try {
       await productAPI.delete(product.title);
-      setPublishedProducts(publishedProducts.filter(p => p.id !== productId));
+      // Recargar productos desde Roble después de eliminar
+      await loadPublishedProducts();
       toast.success("Producto eliminado", {
         description: "El producto ha sido eliminado del sistema",
       });
@@ -638,12 +735,9 @@ export default function App() {
     }
   };
 
-  const handleUpdateProduct = (updatedProduct: Product) => {
-    setPublishedProducts(
-      publishedProducts.map((p) =>
-        p.id === updatedProduct.id ? updatedProduct : p
-      )
-    );
+  const handleUpdateProduct = async (updatedProduct: Product) => {
+    // Recargar productos desde Roble después de actualizar
+    await loadPublishedProducts();
     
     if (user) {
       const activity: Activity = {
@@ -670,14 +764,111 @@ export default function App() {
     setSelectedProduct(null);
   };
 
-  const handleViewUserProfile = (userId: string) => {
-    setViewingUserId(userId);
-    setCurrentPage("userProfile");
+  const handleViewUserProfile = async (userId: string) => {
+    if (!userId) return;
+    
+    try {
+      setViewingUserId(userId);
+      setViewingUser(null);
+      setViewingUserProducts([]);
+      
+      const response = await userAPI.getProfileById(userId);
+      const profileData = (response as any).data || response;
+      
+      if (!profileData || (Array.isArray(profileData) && profileData.length === 0)) {
+        throw new Error("No se pudieron obtener los datos del perfil");
+      }
+      
+      const transformedUser: User = {
+        id: profileData._id || profileData.id || userId,
+        name: profileData.name || "Usuario",
+        email: profileData.email || "",
+        role: profileData.role || "user",
+        city: profileData.ciudad || profileData.city || "",
+        location: profileData.ciudad || profileData.location || "",
+        bio: profileData.descripcion || profileData.bio || "",
+        joinedDate: profileData.fecha_creacion || profileData.joinedDate || new Date().toISOString(),
+        avatar: profileData.avatar || "",
+      };
+      
+      const products = profileData.products || [];
+      const transformedProducts = products.map((p: any) => {
+        try {
+          return transformProductFromRoble(p);
+        } catch (error) {
+          console.error("Error transformando producto:", error);
+          return null;
+        }
+      }).filter((p: Product | null) => p !== null) as Product[];
+      
+      setViewingUser(transformedUser);
+      setViewingUserProducts(transformedProducts);
+      setCurrentPage("userProfile");
+    } catch (error: any) {
+      console.error("Error al cargar perfil:", error);
+      toast.error("Error al cargar perfil", {
+        description: error.response?.data?.error || error.message || "No se pudo cargar el perfil del usuario",
+      });
+      setViewingUserId(null);
+      setViewingUser(null);
+      setViewingUserProducts([]);
+    }
   };
 
-  const handleContactUser = (userId: string) => {
-    setChatUserId(userId);
-    setIsChatOpen(true);
+  const handleContactUser = async (userId: string, productId?: string) => {
+    if (!user) return;
+    
+    try {
+      if (productId) {
+        const product = publishedProducts.find(p => p.id === productId);
+        if (product && product.ownerUserId === userId) {
+          const userProducts = publishedProducts.filter(p => 
+            p.ownerUserId === user.id && 
+            (p.status === "published" || p.status === "Publicada") &&
+            p.id !== productId
+          );
+          
+          if (userProducts.length > 0) {
+            const userProduct = userProducts[0];
+            try {
+              const response = await truequesAPI.propose({
+                id_producto_oferente: productId,
+                id_producto_destinatario: userProduct.id,
+              });
+              
+              toast.success("Propuesta de intercambio enviada", {
+                description: "Ya puedes iniciar una conversación sobre el intercambio",
+              });
+            } catch (error: any) {
+              console.error("Error al proponer intercambio:", error);
+              const errorMessage = error.response?.data?.error || error.message;
+              if (!errorMessage?.includes("ya existe") && !errorMessage?.includes("consigo mismo")) {
+                toast.info("Iniciando conversación", {
+                  description: "Puedes proponer el intercambio en la conversación",
+                });
+              }
+            }
+          } else {
+            toast.info("Iniciando conversación", {
+              description: "No tienes productos publicados para intercambiar, pero puedes contactar al vendedor",
+            });
+          }
+        }
+      }
+      
+      setChatUserId(userId);
+      setIsChatOpen(true);
+      
+      setTimeout(() => {
+        if (setIsChatOpen) {
+          window.dispatchEvent(new Event('chat-opened'));
+        }
+      }, 100);
+    } catch (error: any) {
+      console.error("Error al contactar usuario:", error);
+      setChatUserId(userId);
+      setIsChatOpen(true);
+    }
   };
 
   const handleProposeTrade = (productId: string, proposedProductId?: string) => {
@@ -981,7 +1172,8 @@ export default function App() {
           ubicacion: product.location.replace(", Colombia", ""),
         });
         
-        handleUpdateProduct(product as Product);
+        // Recargar productos desde Roble después de actualizar
+        await loadPublishedProducts();
         setIsPublishModalOpen(false);
         setEditingProduct(null);
         toast.success("Producto actualizado", {
@@ -998,6 +1190,17 @@ export default function App() {
         return;
       }
 
+      // Mapear estado del frontend al formato de Roble
+      const estadoMap: Record<string, string> = {
+        "Publicada": "publicado",
+        "Borrador": "borrador",
+        "Pausada": "pausado",
+        "published": "publicado",
+        "draft": "borrador",
+        "paused": "pausado"
+      };
+      const estadoRoble = estadoMap[product.status] || "borrador";
+
       const response = await productAPI.create({
         nombre: product.title,
         categoria: product.category,
@@ -1005,28 +1208,22 @@ export default function App() {
         comentarioNLP: product.description,
         ubicacion: product.location.replace(", Colombia", ""),
         imagenes: imageFiles,
-        estado: product.status,
+        estado: estadoRoble,
       });
       
       console.log("Producto creado:", response);
 
-      const newProduct: Product = {
-        ...product,
-        id: Date.now().toString(),
-        ownerUserId: user.id,
-        ownerName: user.name,
-        createdAt: new Date().toISOString(),
-      };
+      // Recargar productos desde Roble después de crear
+      await loadPublishedProducts();
       
-      setPublishedProducts([newProduct, ...publishedProducts]);
       setIsPublishModalOpen(false);
       setEditingProduct(null);
       
-      if (product.status === "Publicada") {
+      if (product.status === "Publicada" || product.status === "published") {
         toast.success("¡Producto publicado!", {
           description: "Tu producto ya está visible en el marketplace",
         });
-      } else if (product.status === "Borrador") {
+      } else if (product.status === "Borrador" || product.status === "draft") {
         toast.success("Borrador guardado", {
           description: "Tu producto se ha guardado como borrador",
         });
@@ -1084,16 +1281,49 @@ export default function App() {
     });
   };
 
-  const handleDeactivateAccount = () => {
+  const handleUpdateProfile = async (profileData: { name: string; ciudad: string; descripcion: string }) => {
     if (!user) return;
     
-    const updatedUser = { ...user, isActive: false };
-    setAllUsers(users => users.map(u => u.id === user.id ? updatedUser : u));
-    handleLogout();
+    try {
+      const { userAPI } = await import('./services/api');
+      await userAPI.updateProfile(profileData);
+      
+      // Actualizar el usuario local
+      const updatedUser = {
+        ...user,
+        name: profileData.name,
+        city: profileData.ciudad,
+        description: profileData.descripcion,
+      };
+      setUser(updatedUser);
+      setAllUsers(users => users.map(u => u.id === user.id ? updatedUser : u));
+    } catch (error: any) {
+      console.error("Error al actualizar perfil:", error);
+      throw error;
+    }
+  };
+
+  const handleDeactivateAccount = async () => {
+    if (!user) return;
     
-    toast.success("Cuenta desactivada", {
-      description: "Tu cuenta ha sido desactivada exitosamente",
-    });
+    try {
+      const { userAPI } = await import('./services/api');
+      await userAPI.deactivate();
+      
+      // Actualizar el usuario local
+      const updatedUser = { ...user, isActive: false };
+      setAllUsers(users => users.map(u => u.id === user.id ? updatedUser : u));
+      handleLogout();
+      
+      toast.success("Cuenta desactivada", {
+        description: "Tu cuenta ha sido desactivada exitosamente",
+      });
+    } catch (error: any) {
+      console.error("Error al desactivar cuenta:", error);
+      toast.error("Error al desactivar cuenta", {
+        description: error.message || "No se pudo desactivar la cuenta",
+      });
+    }
   };
 
   const handleMarkNotificationAsRead = (id: string) => {
@@ -1124,10 +1354,7 @@ export default function App() {
   };
 
   const unreadNotificationCount = notifications.filter((n) => !n.read).length;
-  const unreadMessageCount = 3; // Mock count
-
-  // Get viewing user for profile
-  const viewingUser = viewingUserId ? allUsers.find(u => u.id === viewingUserId) : null;
+  const unreadMessageCount = 3;
 
   // Mostrar indicador de carga mientras se verifica la autenticación
   if (authLoading) {
@@ -1222,6 +1449,7 @@ export default function App() {
             onDeleteProduct={handleDeleteProduct}
             onEditProduct={handleEditProduct}
             onDeactivateAccount={handleDeactivateAccount}
+            onUpdateProfile={handleUpdateProfile}
             allProducts={publishedProducts}
             isDarkMode={isDarkMode}
             onToggleTheme={toggleTheme}
@@ -1236,18 +1464,38 @@ export default function App() {
             themeColor={themeColor}
           />
         )}
-        {currentPage === "userProfile" && viewingUser && (
-          <Profile 
-            user={viewingUser} 
-            onViewProduct={handleViewProduct}
-            onPublishProduct={() => setIsPublishModalOpen(true)}
-            publishedProducts={publishedProducts}
-            onUpdateProduct={handleUpdateProduct}
-            onDeleteProduct={handleDeleteProduct}
-            onEditProduct={handleEditProduct}
-            isViewingOther={true}
-            onNavigateBack={() => setCurrentPage("marketplace")}
-          />
+        {currentPage === "userProfile" && (
+          viewingUser ? (
+            <Profile 
+              user={viewingUser} 
+              onViewProduct={handleViewProduct}
+              publishedProducts={viewingUserProducts.filter(p => p.status === "published" || p.status === "Publicada")}
+              allProducts={[...viewingUserProducts, ...publishedProducts]}
+              isViewingOther={true}
+              isDarkMode={isDarkMode}
+              onToggleTheme={toggleTheme}
+              themeColor={themeColor}
+              onColorChange={handleColorChange}
+              onContactUser={handleContactUser}
+              onToggleFavorite={user ? handleToggleFavorite : undefined}
+              onProposeTrade={user ? handleProposeTrade : undefined}
+              currentUserId={user?.id}
+              currentUserFavorites={user?.favorites || []}
+              onNavigateBack={() => {
+                setCurrentPage("marketplace");
+                setViewingUser(null);
+                setViewingUserId(null);
+                setViewingUserProducts([]);
+              }}
+            />
+          ) : (
+            <div className="min-h-screen pt-16 pb-20 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Cargando perfil...</p>
+              </div>
+            </div>
+          )
         )}
         {currentPage === "admin" && user && user.role === "admin" && (
           <AdminDashboard
@@ -1267,6 +1515,7 @@ export default function App() {
             onViewProduct={handleViewProduct}
             currentUserId={user?.id}
             onToggleFavorite={handleToggleFavorite}
+            userFavorites={user?.favorites || []}
           />
         )}
         {currentPage === "recommendations" && (
@@ -1276,6 +1525,7 @@ export default function App() {
             currentUserId={user?.id}
             currentUser={user}
             onToggleFavorite={handleToggleFavorite}
+            onNavigate={setCurrentPage}
           />
         )}
 

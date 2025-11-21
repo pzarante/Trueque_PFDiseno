@@ -5,12 +5,12 @@ from app.postgres_DB.postgres import get_user_publication_history, get_user_cons
 recommendations = Blueprint('recommendations', __name__)
 
 
+@recommendations.route('/nlp/recommendations/<user_id>', methods=['GET'])
 @recommendations.route('/nlp/recommendations', methods=['POST'])
-def recommendation():
-
-    data = request.get_json()
-
-    user_id = data.get('user_id', None)
+def recommendation(user_id=None):
+    if not user_id:
+        data = request.get_json()
+        user_id = data.get('user_id', None)
 
     publication = get_user_publication_history(user_id)
     consult = get_user_consultation_history(user_id)
@@ -61,12 +61,14 @@ def recommendation():
     # PASO 3: Formatear respuesta
     recommended_offer_ids = []
 
+    seen_offer_ids = set()
     for chroma_id in results["ids"][0]:
-        offer_id = chroma_id.replace("_title", "").replace("_comment", "")
+        offer_id = chroma_id.split("_")[0]
         
         # Excluir ofertas que ya están en el historial del usuario 
-        if offer_id not in str(offer_ids):
+        if offer_id not in offer_ids and offer_id not in seen_offer_ids:
             recommended_offer_ids.append(offer_id)
+            seen_offer_ids.add(offer_id)
       
 
     # Después de obtener recommended_offer_ids

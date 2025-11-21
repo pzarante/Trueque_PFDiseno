@@ -15,6 +15,7 @@ import {
   ArrowRightLeft,
   X,
   Check,
+  Star,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -22,10 +23,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Product } from "./ProductCard";
 import { PublishProduct } from "./PublishProduct";
+import { RatingModal } from "./RatingModal";
 import { toast } from "sonner";
 import { useThemeColor, getGradientClasses, getShadowClasses } from "../hooks/useThemeColor";
 import { User } from "../App";
-import { productAPI, truequesAPI, userAPI } from "../services/api";
+import { productAPI, truequesAPI, userAPI, ratingsAPI } from "../services/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,6 +79,9 @@ interface Trade {
   confirmacion_destinatario: string;
   fecha_creacion: string;
   fecha_confirmacion?: string;
+  fecha_cancelacion?: string;
+  fecha_rechazo?: string;
+  fecha_cierre?: string;
   producto_oferente?: Product;
   producto_destinatario?: Product;
   usuario_oferente?: any;
@@ -97,6 +102,8 @@ export function Dashboard({
   const [loading, setLoading] = useState(true);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [tradeToConfirm, setTradeToConfirm] = useState<{ id: string; action: 'aceptar' | 'rechazar' } | null>(null);
+  const [ratingModal, setRatingModal] = useState<{ tradeId: string; userId: string; userName: string } | null>(null);
+  const [ratingStatuses, setRatingStatuses] = useState<Record<string, { canRate: boolean; hasRated: boolean; otherUserId: string }>>({});
   
   const { themeColor: contextThemeColor } = useThemeColor();
   const activeThemeColor = (themeColor || contextThemeColor) as "blue" | "purple" | "red" | "orange" | "green";
@@ -106,6 +113,12 @@ export function Dashboard({
   useEffect(() => {
     loadData();
   }, [user]);
+
+  useEffect(() => {
+    if (trades.length > 0) {
+      checkRatingStatuses();
+    }
+  }, [trades]);
 
   const loadData = async () => {
     setLoading(true);
@@ -137,7 +150,9 @@ export function Dashboard({
           ownerUserId: p.oferenteID || user.id,
           condition: "Bueno",
           interestedIn: p.condicionesTrueque ? [p.condicionesTrueque] : [],
-          status: p.estado === "publicado" ? "published" : p.estado === "pausado" ? "paused" : "draft",
+          status: p.estado === "publicado" || p.estado === "published" ? "Publicada" : 
+                  p.estado === "pausado" || p.estado === "paused" ? "Pausada" : 
+                  "Borrador",
           available: p.activo !== false,
           createdAt: p.fechaCreacion || new Date().toISOString(),
         };
@@ -158,7 +173,7 @@ export function Dashboard({
   };
 
   const draftProducts = products.filter(p => p.status === "Borrador");
-  const publishedProducts = products.filter(p => p.status === "Publicada");
+  const publishedProductsList = products.filter(p => p.status === "Publicada");
   const pausedProducts = products.filter(p => p.status === "Pausada");
   const receivedTrades = trades.filter(t => t.id_usuario1 === user.id && t.id_usuario2 !== user.id);
   const sentTrades = trades.filter(t => t.id_usuario2 === user.id && t.id_usuario1 !== user.id);
@@ -229,6 +244,9 @@ export function Dashboard({
   const handleChangeStatus = async (product: Product, newStatus: string) => {
     try {
       const statusMap: Record<string, string> = {
+        "Publicada": "publicado",
+        "Pausada": "pausado",
+        "Borrador": "borrador",
         "published": "publicado",
         "paused": "pausado",
         "draft": "borrador",
@@ -257,15 +275,78 @@ export function Dashboard({
 
   const handleConfirmTrade = async (tradeId: string, action: 'aceptar' | 'rechazar') => {
     try {
-      await truequesAPI.confirm(tradeId, action);
-      toast.success(action === 'aceptar' ? "Trueque aceptado" : "Trueque rechazado");
+      const response = await truequesAPI.confirm(tradeId, action);
+      const responseData = (response as any).data || response;
+      
+      if (responseData.status === 'completado') {
+        toast.success("¡Trueque completado!", {
+          description: "Ambas partes han confirmado el intercambio. Ahora puedes calificar al otro usuario.",
+        });
+        await checkRatingStatuses();
+      } else if (action === 'aceptar') {
+        toast.success("Trueque aceptado", {
+          description: "Esperando confirmación de la otra parte",
+        });
+      } else {
+        toast.success("Trueque rechazado", {
+          description: "El trueque ha sido cancelado",
+        });
+      }
+      
       setTradeToConfirm(null);
       loadData();
     } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || "No se pudo procesar la confirmación";
       toast.error("Error al confirmar trueque", {
-        description: error.message || "No se pudo procesar la confirmación",
+        description: errorMessage,
       });
     }
+  };
+
+  const checkRatingStatuses = async () => {
+    const completedTrades = trades.filter(t => t.status === 'completado');
+    const statuses: Record<string, { canRate: boolean; hasRated: boolean; otherUserId: string }> = {};
+    
+    for (const trade of completedTrades) {
+      try {
+        const response = await ratingsAPI.checkRatingStatus(trade._id);
+        const statusData = (response as any).data || response;
+        statuses[trade._id] = {
+          canRate: statusData.canRate || false,
+          hasRated: statusData.hasRated || false,
+          otherUserId: statusData.otherUserId || '',
+        };
+      } catch (error) {
+        console.error(`Error checking rating status for trade ${trade._id}:`, error);
+        statuses[trade._id] = { canRate: false, hasRated: false, otherUserId: '' };
+      }
+    }
+    
+    setRatingStatuses(statuses);
+  };
+
+  const handleRateUser = async (rating: number, comment: string) => {
+    if (!ratingModal) return;
+    
+    try {
+      await ratingsAPI.create({
+        tradeId: ratingModal.tradeId,
+        ratedUserId: ratingModal.userId,
+        rating: rating,
+        comment: comment,
+      });
+      
+      setRatingModal(null);
+      await checkRatingStatuses();
+      loadData();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || "No se pudo enviar la calificación";
+      throw new Error(errorMessage);
+    }
+  };
+
+  const openRatingModal = (tradeId: string, userId: string, userName: string) => {
+    setRatingModal({ tradeId, userId, userName });
   };
 
   const handleEditProduct = (product: Product) => {
@@ -340,7 +421,7 @@ export function Dashboard({
               <TabsList>
                 <TabsTrigger value="todas">Todas ({products.length})</TabsTrigger>
                 <TabsTrigger value="borradores">Borradores ({draftProducts.length})</TabsTrigger>
-                <TabsTrigger value="publicadas">Publicadas ({publishedProducts.length})</TabsTrigger>
+                <TabsTrigger value="publicadas">Publicadas ({publishedProductsList.length})</TabsTrigger>
                 <TabsTrigger value="pausadas">Pausadas ({pausedProducts.length})</TabsTrigger>
               </TabsList>
 
@@ -487,7 +568,7 @@ export function Dashboard({
 
               <TabsContent value="publicadas">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {publishedProducts.length === 0 ? (
+                  {publishedProductsList.length === 0 ? (
                     <Card className="col-span-full">
                       <CardContent className="flex flex-col items-center justify-center py-12">
                         <Eye className="w-12 h-12 text-muted-foreground mb-4" />
@@ -495,7 +576,7 @@ export function Dashboard({
                       </CardContent>
                     </Card>
                   ) : (
-                    publishedProducts.map((product) => (
+                    publishedProductsList.map((product) => (
                       <Card key={product.id} className="overflow-hidden">
                         <div className="relative">
                           <img
@@ -602,6 +683,8 @@ export function Dashboard({
                         currentUserId={user.id}
                         onViewProduct={onViewProduct}
                         onConfirm={(id, action) => setTradeToConfirm({ id, action })}
+                        onRate={openRatingModal}
+                        ratingStatus={ratingStatuses[trade._id]}
                       />
                     ))
                   )}
@@ -625,6 +708,8 @@ export function Dashboard({
                         currentUserId={user.id}
                         onViewProduct={onViewProduct}
                         onConfirm={(id, action) => setTradeToConfirm({ id, action })}
+                        onRate={openRatingModal}
+                        ratingStatus={ratingStatuses[trade._id]}
                       />
                     ))
                   )}
@@ -648,6 +733,8 @@ export function Dashboard({
                         currentUserId={user.id}
                         onViewProduct={onViewProduct}
                         onConfirm={(id, action) => setTradeToConfirm({ id, action })}
+                        onRate={openRatingModal}
+                        ratingStatus={ratingStatuses[trade._id]}
                       />
                     ))
                   )}
@@ -671,6 +758,8 @@ export function Dashboard({
                         currentUserId={user.id}
                         onViewProduct={onViewProduct}
                         onConfirm={(id, action) => setTradeToConfirm({ id, action })}
+                        onRate={openRatingModal}
+                        ratingStatus={ratingStatuses[trade._id]}
                       />
                     ))
                   )}
@@ -694,6 +783,8 @@ export function Dashboard({
                         currentUserId={user.id}
                         onViewProduct={onViewProduct}
                         onConfirm={(id, action) => setTradeToConfirm({ id, action })}
+                        onRate={openRatingModal}
+                        ratingStatus={ratingStatuses[trade._id]}
                       />
                     ))
                   )}
@@ -758,6 +849,14 @@ export function Dashboard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RatingModal
+        isOpen={!!ratingModal}
+        onClose={() => setRatingModal(null)}
+        onRate={handleRateUser}
+        userName={ratingModal?.userName || ""}
+        tradeId={ratingModal?.tradeId || ""}
+      />
     </div>
   );
 }
@@ -766,12 +865,16 @@ function TradeCard({
   trade, 
   currentUserId, 
   onViewProduct, 
-  onConfirm 
+  onConfirm,
+  onRate,
+  ratingStatus
 }: { 
   trade: Trade; 
   currentUserId: string; 
   onViewProduct: (product: Product) => void;
   onConfirm: (id: string, action: 'aceptar' | 'rechazar') => void;
+  onRate?: (tradeId: string, userId: string, userName: string) => void;
+  ratingStatus?: { canRate: boolean; hasRated: boolean; otherUserId: string };
 }) {
   const isReceived = trade.id_usuario1 === currentUserId;
   const otherUser = isReceived ? trade.usuario_destinatario : trade.usuario_oferente;
@@ -893,14 +996,59 @@ function TradeCard({
         )}
 
         {trade.status === "completado" && (
-          <div className="pt-4 border-t">
+          <div className="pt-4 border-t space-y-3">
             <div className="flex items-center gap-2 text-green-600">
               <CheckCircle className="w-4 h-4" />
               <span className="text-sm font-medium">Trueque completado</span>
             </div>
             {trade.fecha_confirmacion && (
+              <p className="text-xs text-muted-foreground">
+                Confirmado el {new Date(trade.fecha_confirmacion).toLocaleDateString("es-CO", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit"
+                })}
+              </p>
+            )}
+            {ratingStatus && onRate && otherUser && (
+              <div className="pt-2">
+                {ratingStatus.canRate && !ratingStatus.hasRated ? (
+                  <Button
+                    onClick={() => onRate(trade._id, ratingStatus.otherUserId, otherUser?.name || "Usuario")}
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                  >
+                    <Star className="w-4 h-4 mr-2" />
+                    Calificar a {otherUser?.name || "Usuario"}
+                  </Button>
+                ) : ratingStatus.hasRated ? (
+                  <p className="text-xs text-muted-foreground text-center py-1">
+                    Ya calificaste a este usuario
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {trade.status === "rechazado" && (
+          <div className="pt-4 border-t">
+            <div className="flex items-center gap-2 text-red-600">
+              <X className="w-4 h-4" />
+              <span className="text-sm font-medium">Trueque rechazado</span>
+            </div>
+            {(trade.fecha_cancelacion || trade.fecha_rechazo) && (
               <p className="text-xs text-muted-foreground mt-1">
-                Confirmado el {new Date(trade.fecha_confirmacion).toLocaleDateString()}
+                Cancelado el {new Date(trade.fecha_cancelacion || trade.fecha_rechazo || new Date()).toLocaleDateString("es-CO", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit"
+                })}
               </p>
             )}
           </div>

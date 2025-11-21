@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ThemeColor } from "./ThemeColorPicker";
 import { useThemeColor, getGradientClasses, getShadowClasses, getAccentBgClasses, getAccentBorderClasses, getAccentTextClasses, getTextClasses } from "../hooks/useThemeColor";
 import { PasswordInput } from "./PasswordInput";
+import ReCAPTCHA from "react-google-recaptcha";
 
 interface LoginProps {
-  onLogin: (email: string, password: string, isAdmin: boolean) => void;
+  onLogin: (email: string, password: string, isAdmin: boolean, captchaToken?: string) => void;
   onNavigate: (page: string) => void;
 }
 
@@ -26,15 +27,33 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
   const [password, setPassword] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [userCaptchaToken, setUserCaptchaToken] = useState<string | null>(null);
+  const [adminCaptchaToken, setAdminCaptchaToken] = useState<string | null>(null);
+  const userRecaptchaRef = useRef<ReCAPTCHA>(null);
+  const adminRecaptchaRef = useRef<ReCAPTCHA>(null);
+
+  const handleUserCaptchaChange = (token: string | null) => {
+    setUserCaptchaToken(token);
+  };
+
+  const handleAdminCaptchaChange = (token: string | null) => {
+    setAdminCaptchaToken(token);
+  };
 
   const handleUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(email, password, false);
+    if (!userCaptchaToken) {
+      return;
+    }
+    onLogin(email, password, false, userCaptchaToken);
   };
 
   const handleAdminSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(adminEmail, adminPassword, true);
+    if (!adminCaptchaToken) {
+      return;
+    }
+    onLogin(adminEmail, adminPassword, true, adminCaptchaToken);
   };
 
   // Definir colores de las animaciones según el tema
@@ -149,9 +168,19 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
                   </button>
                 </div>
 
+                <div className="flex justify-center">
+                  <ReCAPTCHA
+                    ref={userRecaptchaRef}
+                    sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                    onChange={handleUserCaptchaChange}
+                    theme="dark"
+                  />
+                </div>
+
                 <Button
                   type="submit"
-                  className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses}`}
+                  disabled={!userCaptchaToken}
+                  className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   Iniciar Sesión
                 </Button>
@@ -192,9 +221,19 @@ export function Login({ onLogin, onNavigate }: LoginProps) {
                   required
                 />
 
+                <div className="flex justify-center">
+                  <ReCAPTCHA
+                    ref={adminRecaptchaRef}
+                    sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                    onChange={handleAdminCaptchaChange}
+                    theme="dark"
+                  />
+                </div>
+
                 <Button
                   type="submit"
-                  className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses}`}
+                  disabled={!adminCaptchaToken}
+                  className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <Shield className="w-4 h-4 mr-2" />
                   Acceder como Admin

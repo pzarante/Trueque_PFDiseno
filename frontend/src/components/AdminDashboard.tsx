@@ -23,6 +23,7 @@ import { useState } from "react";
 import { toast } from "sonner@2.0.3";
 import { ThemeColorPicker, ThemeColor } from "./ThemeColorPicker";
 import { useThemeColor, getGradientClasses, getShadowClasses } from "../hooks/useThemeColor";
+import { userAPI } from "../services/api";
 
 interface AdminDashboardProps {
   publishedProducts: Product[];
@@ -132,22 +133,51 @@ export function AdminDashboard({
   const totalTrades = trades.filter((t: any) => t.status === "completed").length;
   const pendingApprovals = users.filter((u: any) => u.status === "pending").length;
 
-  const handleSuspendUser = (userId: string) => {
-    setUsers(users.map(u => 
-      u.id === userId 
-        ? { ...u, status: u.status === "active" ? "suspended" : "active" as const }
-        : u
-    ));
-    toast.success("Estado de usuario actualizado");
+  const handleSuspendUser = async (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    const newStatus = user.status === "active" ? "suspended" : "active";
+    const active = newStatus === "active";
+    
+    try {
+      await userAPI.toggleUserStatus(user.email, active);
+      
+      setUsers(users.map(u => 
+        u.id === userId 
+          ? { ...u, status: newStatus }
+          : u
+      ));
+      
+      toast.success(active ? "Usuario activado exitosamente" : "Usuario desactivado exitosamente");
+    } catch (error: any) {
+      console.error("Error al cambiar estado de usuario:", error);
+      toast.error("Error al actualizar estado", {
+        description: error.message || "No se pudo cambiar el estado del usuario",
+      });
+    }
   };
 
-  const handleApproveUser = (userId: string) => {
-    setUsers(users.map(u => 
-      u.id === userId 
-        ? { ...u, status: "active" as const }
-        : u
-    ));
-    toast.success("Usuario aprobado");
+  const handleApproveUser = async (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    try {
+      await userAPI.toggleUserStatus(user.email, true);
+      
+      setUsers(users.map(u => 
+        u.id === userId 
+          ? { ...u, status: "active" as const }
+          : u
+      ));
+      
+      toast.success("Usuario aprobado y activado exitosamente");
+    } catch (error: any) {
+      console.error("Error al aprobar usuario:", error);
+      toast.error("Error al aprobar usuario", {
+        description: error.message || "No se pudo aprobar el usuario",
+      });
+    }
   };
 
   const handleDeleteProduct = (productId: string) => {
