@@ -2,8 +2,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { useState } from "react";
 import { Star, X } from "lucide-react";
 import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea";
-import { Label } from "./ui/label";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +15,7 @@ import { toast } from "sonner";
 interface RatingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onRate: (rating: number, comment: string) => Promise<void>;
+  onRate: (rating: number) => Promise<void>;
   userName: string;
   tradeId: string;
   disabled?: boolean;
@@ -33,7 +31,6 @@ export function RatingModal({
 }: RatingModalProps) {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
-  const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { themeColor } = useThemeColor();
   const gradientClasses = getGradientClasses(themeColor);
@@ -49,9 +46,8 @@ export function RatingModal({
 
     setIsSubmitting(true);
     try {
-      await onRate(rating, comment);
+      await onRate(rating);
       setRating(0);
-      setComment("");
       setHoveredRating(0);
       onClose();
       toast.success("Calificación enviada", {
@@ -69,7 +65,6 @@ export function RatingModal({
   const handleClose = () => {
     if (!isSubmitting) {
       setRating(0);
-      setComment("");
       setHoveredRating(0);
       onClose();
     }
@@ -83,15 +78,14 @@ export function RatingModal({
             Calificar a {userName}
           </DialogTitle>
           <DialogDescription>
-            Comparte tu experiencia con este usuario después del trueque completado
+            Selecciona una calificación de 1 a 5 estrellas
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           {/* Star Rating */}
           <div className="space-y-3">
-            <Label className="text-base font-semibold">Calificación</Label>
-            <div className="flex items-center justify-center gap-2 py-4">
+            <div className="flex items-center justify-center gap-2 py-8">
               {[1, 2, 3, 4, 5].map((star) => {
                 const isActive = star <= (hoveredRating || rating);
                 return (
@@ -111,7 +105,7 @@ export function RatingModal({
                     whileTap={!disabled && !isSubmitting ? { scale: 0.95 } : {}}
                   >
                     <Star
-                      className={`w-10 h-10 transition-colors ${
+                      className={`w-12 h-12 transition-colors ${
                         isActive
                           ? `fill-primary text-primary ${shadowClasses}`
                           : "text-muted-foreground"
@@ -121,38 +115,6 @@ export function RatingModal({
                 );
               })}
             </div>
-            {rating > 0 && (
-              <motion.p
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center text-sm text-muted-foreground"
-              >
-                {rating === 1 && "Muy insatisfecho"}
-                {rating === 2 && "Insatisfecho"}
-                {rating === 3 && "Neutro"}
-                {rating === 4 && "Satisfecho"}
-                {rating === 5 && "Muy satisfecho"}
-              </motion.p>
-            )}
-          </div>
-
-          {/* Comment */}
-          <div className="space-y-2">
-            <Label htmlFor="comment" className="text-base font-semibold">
-              Comentario (opcional)
-            </Label>
-            <Textarea
-              id="comment"
-              placeholder="Describe tu experiencia con este trueque..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              disabled={disabled || isSubmitting}
-              className="min-h-[100px] resize-none"
-              maxLength={500}
-            />
-            <p className="text-xs text-muted-foreground text-right">
-              {comment.length}/500 caracteres
-            </p>
           </div>
         </div>
 

@@ -123,7 +123,11 @@ export function Dashboard({
 
   useEffect(() => {
     if (trades.length > 0) {
-      checkRatingStatuses();
+      // Verificar estado de calificaciones cuando cambien los trades
+      const completedTrades = trades.filter(t => t.status === 'completado');
+      if (completedTrades.length > 0) {
+        checkRatingStatuses();
+      }
     }
   }, [trades]);
 
@@ -349,7 +353,12 @@ export function Dashboard({
           });
         }
         
-        await checkRatingStatuses();
+        // Recargar datos primero para obtener el trueque actualizado
+        const tradesResponse = await truequesAPI.getMyTrades() as any;
+        const updatedTrades = tradesResponse.data || [];
+        setTrades(updatedTrades);
+        // Verificar estado de calificaciones con los trades recién obtenidos
+        await checkRatingStatuses(updatedTrades);
       } else if (action === 'aceptar') {
         toast.success("Has confirmado tu parte del trueque", {
           description: "El intercambio se completará cuando la otra parte también confirme. Puedes ver el progreso en la pestaña 'En Proceso'.",
@@ -372,7 +381,10 @@ export function Dashboard({
       }
       
       setTradeToConfirm(null);
-      loadData();
+      // No recargar datos aquí si ya se hizo arriba cuando se completó
+      if (responseData.status !== 'completado') {
+        loadData();
+      }
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || "No se pudo procesar la confirmación";
       toast.error("Error al confirmar trueque", {
@@ -381,8 +393,9 @@ export function Dashboard({
     }
   };
 
-  const checkRatingStatuses = async () => {
-    const completedTrades = trades.filter(t => t.status === 'completado');
+  const checkRatingStatuses = async (tradesToCheck?: Trade[]) => {
+    const tradesToUse = tradesToCheck || trades;
+    const completedTrades = tradesToUse.filter(t => t.status === 'completado');
     const statuses: Record<string, { canRate: boolean; hasRated: boolean; otherUserId: string }> = {};
     
     for (const trade of completedTrades) {
@@ -403,7 +416,7 @@ export function Dashboard({
     setRatingStatuses(statuses);
   };
 
-  const handleRateUser = async (rating: number, comment: string) => {
+  const handleRateUser = async (rating: number) => {
     if (!ratingModal) return;
     
     try {
@@ -411,12 +424,13 @@ export function Dashboard({
         tradeId: ratingModal.tradeId,
         ratedUserId: ratingModal.userId,
         rating: rating,
-        comment: comment,
       });
       
       setRatingModal(null);
+      // Recargar datos primero para actualizar el estado
+      await loadData();
+      // Luego verificar el estado de calificaciones
       await checkRatingStatuses();
-      loadData();
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || "No se pudo enviar la calificación";
       throw new Error(errorMessage);
@@ -1228,9 +1242,9 @@ function TradeCard({
                 })}
               </p>
             )}
-            {ratingStatus && onRate && otherUser && (
+            {onRate && otherUser && (
               <div className="pt-2">
-                {ratingStatus.canRate && !ratingStatus.hasRated ? (
+                {ratingStatus?.canRate && !ratingStatus?.hasRated ? (
                   <Button
                     onClick={() => onRate(trade._id, ratingStatus.otherUserId, otherUser?.name || "Usuario")}
                     variant="outline"
@@ -1240,10 +1254,23 @@ function TradeCard({
                     <Star className="w-4 h-4 mr-2" />
                     Calificar a {otherUser?.name || "Usuario"}
                   </Button>
-                ) : ratingStatus.hasRated ? (
+                ) : ratingStatus?.hasRated ? (
                   <p className="text-xs text-muted-foreground text-center py-1">
                     Ya calificaste a este usuario
                   </p>
+                ) : ratingStatus === undefined ? (
+                  <Button
+                    onClick={() => {
+                      const otherUserId = trade.id_usuario1 === currentUserId ? trade.id_usuario2 : trade.id_usuario1;
+                      onRate(trade._id, otherUserId, otherUser?.name || "Usuario");
+                    }}
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                  >
+                    <Star className="w-4 h-4 mr-2" />
+                    Calificar a {otherUser?.name || "Usuario"}
+                  </Button>
                 ) : null}
               </div>
             )}

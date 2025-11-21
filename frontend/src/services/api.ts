@@ -261,11 +261,13 @@ export const ratingsAPI = {
     tradeId: string;
     ratedUserId: string;
     rating: number;
-    comment?: string;
   }) => {
     return request('/api/ratings', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        comment: "", // Siempre cadena vacía, solo se guardan estrellas
+      }),
     });
   },
   

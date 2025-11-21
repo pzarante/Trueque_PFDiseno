@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Edit, MapPin, Mail, Calendar, Package, Heart, Star, Pencil, Trash2, ArrowLeft, MessageCircle, Quote, User as UserIcon, ArrowLeftRight } from "lucide-react";
+import { Edit, MapPin, Mail, Calendar, Package, Heart, Star, Pencil, Trash2, ArrowLeft, MessageCircle, User as UserIcon, ArrowLeftRight } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
@@ -602,7 +602,7 @@ export function Profile({
               <div className="mb-6">
                 <h2>Calificaciones Recibidas</h2>
                 <p className="text-muted-foreground">
-                  Comentarios y calificaciones de otros usuarios sobre tus trueques
+                  Calificaciones de 1 a 5 estrellas de otros usuarios sobre tus trueques completados
                 </p>
               </div>
               {loadingRatings ? (
@@ -624,31 +624,22 @@ export function Profile({
                           <UserIcon className="w-6 h-6" />
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-3 mb-2">
                             <p className="font-semibold">{rating.rater?.name || "Usuario"}</p>
                             <div className="flex items-center gap-1">
                               {[...Array(5)].map((_, i) => (
                                 <Star
                                   key={i}
-                                  className={`w-4 h-4 ${
+                                  className={`w-5 h-5 ${
                                     i < (rating.rating || 0)
                                       ? "fill-primary text-primary"
                                       : "text-muted-foreground"
                                   }`}
                                 />
                               ))}
-                              <span className="text-sm text-muted-foreground ml-1">
-                                {rating.rating || 0}/5
-                              </span>
                             </div>
                           </div>
-                          {rating.comment && (
-                            <div className="flex items-start gap-2 mt-2">
-                              <Quote className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
-                              <p className="text-sm text-muted-foreground italic">{rating.comment}</p>
-                            </div>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-3">
+                          <p className="text-xs text-muted-foreground mt-2">
                             {new Date(rating.createdAt || rating.fecha_creacion || Date.now()).toLocaleDateString("es-CO", {
                               year: "numeric",
                               month: "long",
@@ -793,3 +784,4 @@ function formatActivityDate(dateString: string): string {
   
   return date.toLocaleDateString('es-CO');
 }
+

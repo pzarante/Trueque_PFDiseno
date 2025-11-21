@@ -15,6 +15,9 @@ export const createRating = async (req, res) => {
       });
     }
     
+    // Solo se guardan calificaciones con estrellas, sin comentarios
+    const ratingComment = "";
+    
     const ref = await axios.post("https://roble-api.openlab.uninorte.edu.co/auth/trueque_pfdiseno_b28d4fbe65/refresh-token", {
       refreshToken: `${refreshToken}`
     });
@@ -109,7 +112,7 @@ export const createRating = async (req, res) => {
         id_calificador: raterUserId,
         id_calificado: ratedUserId,
         calificacion: rating,
-        comentario: comment || "",
+        comentario: ratingComment,
         fecha_creacion: new Date().toISOString()
       };
       
@@ -150,7 +153,7 @@ export const createRating = async (req, res) => {
             id_calificador: raterUserId,
             id_calificado: ratedUserId,
             calificacion: rating,
-            comentario: comment || "",
+            comentario: ratingComment,
             fecha_creacion: new Date().toISOString()
           };
           
