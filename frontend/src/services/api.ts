@@ -27,8 +27,17 @@ const request = async <T>(
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Error desconocido' }));
-      throw new Error(error.message || error.error || `Error: ${response.status}`);
+      const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }));
+      // El backend puede devolver error, detalles, o message
+      const errorMessage = errorData.detalles 
+        ? (typeof errorData.detalles === 'string' ? errorData.detalles : JSON.stringify(errorData.detalles))
+        : (errorData.message || errorData.error || `Error: ${response.status}`);
+      const error = new Error(errorMessage);
+      // Guardar toda la información del error para acceso posterior
+      (error as any).errorData = errorData;
+      (error as any).status = response.status;
+      (error as any).response = response;
+      throw error;
     }
 
     return response.json();
@@ -88,25 +97,37 @@ export const authAPI = {
   },
 
   login: async (email: string, password: string) => {
-    const response = await request<{ token?: string; message?: string; accessToken?: string }>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    
-    // Si el backend devuelve un token o accessToken, guardarlo
-    if (response.token) {
-      localStorage.setItem('token', response.token);
-    } else if (response.accessToken) {
-      localStorage.setItem('token', response.accessToken);
+    try {
+      const response = await request<{ token?: string; message?: string; accessToken?: string }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      
+      // Si el backend devuelve un token o accessToken, guardarlo
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+      } else if (response.accessToken) {
+        localStorage.setItem('token', response.accessToken);
+      }
+      
+      return response;
+    } catch (error: any) {
+      // Preservar información del error para que el hook pueda detectar verificación
+      throw error;
     }
-    
-    return response;
   },
 
   verify: async (email: string, code: string) => {
     return request('/api/auth/verify', {
       method: 'POST',
       body: JSON.stringify({ email, code }),
+    });
+  },
+
+  resendVerificationCode: async (email: string, password?: string) => {
+    return request('/api/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
     });
   },
 
@@ -122,6 +143,14 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify({ newPassword }),
     });
+  },
+
+  getMe: async () => {
+    return request('/api/auth/me');
+  },
+
+  logout: () => {
+    localStorage.removeItem('token');
   },
 };
 
@@ -177,6 +206,7 @@ export const productAPI = {
     comentarioNLP: string;
     ubicacion: string;
     imagenes?: File[];
+    estado: string;
   }) => {
     const formData = new FormData();
     formData.append('nombre', data.nombre);
@@ -184,6 +214,7 @@ export const productAPI = {
     formData.append('condicionesTrueque', data.condicionesTrueque);
     formData.append('comentarioNLP', data.comentarioNLP);
     formData.append('ubicacion', data.ubicacion);
+    formData.append('estado', data.estado);
 
     if (data.imagenes) {
       data.imagenes.forEach((image) => {

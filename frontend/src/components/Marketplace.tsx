@@ -35,7 +35,7 @@ const MOCK_PRODUCTS: Product[] = [
     ownerUserId: "mock1",
     condition: "Como Nuevo",
     interestedIn: ["Vinilos", "Libros de fotografía", "Trípode"],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: new Date().toISOString(),
   },
@@ -50,7 +50,7 @@ const MOCK_PRODUCTS: Product[] = [
     ownerUserId: "mock2",
     condition: "Bueno",
     interestedIn: ["Patinete eléctrico", "Tabla de surf", "Equipo de camping"],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: new Date().toISOString(),
   },
@@ -65,7 +65,7 @@ const MOCK_PRODUCTS: Product[] = [
     ownerUserId: "mock3",
     condition: "Como Nuevo",
     interestedIn: ["Teclado", "Micrófono", "Pedales de efectos"],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: new Date().toISOString(),
   },
@@ -80,7 +80,7 @@ const MOCK_PRODUCTS: Product[] = [
     ownerUserId: "mock4",
     condition: "Bueno",
     interestedIn: ["Libros de ciencia ficción", "Comics", "Enciclopedias"],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: new Date().toISOString(),
   },
@@ -95,7 +95,7 @@ const MOCK_PRODUCTS: Product[] = [
     ownerUserId: "mock5",
     condition: "Usado",
     interestedIn: ["Longboard", "Casco y protecciones", "Zapatillas"],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: new Date().toISOString(),
   },
@@ -110,7 +110,7 @@ const MOCK_PRODUCTS: Product[] = [
     ownerUserId: "mock6",
     condition: "Como Nuevo",
     interestedIn: ["Altavoz bluetooth", "Smartwatch", "Cargador inalámbrico"],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: new Date().toISOString(),
   },
@@ -125,7 +125,7 @@ const MOCK_PRODUCTS: Product[] = [
     ownerUserId: "mock7",
     condition: "Bueno",
     interestedIn: ["Monitor", "Teclado mecánico", "Mouse gaming"],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: new Date().toISOString(),
   },
@@ -140,7 +140,7 @@ const MOCK_PRODUCTS: Product[] = [
     ownerUserId: "mock8",
     condition: "Nuevo",
     interestedIn: ["Pesas", "Bicicleta estática", "Ropa deportiva"],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: new Date().toISOString(),
   },
@@ -171,7 +171,7 @@ export function Marketplace({
   const shadowClasses = getShadowClasses(themeColor);
 
   // Combine mock products with published products - only show published products
-  const allProducts = [...publishedProducts.filter(p => p.status === "published"), ...MOCK_PRODUCTS];
+  const allProducts = [...publishedProducts.filter(p => p.status === "Publicada"), ...MOCK_PRODUCTS];
 
   const filteredProducts = allProducts.filter((product) => {
     const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

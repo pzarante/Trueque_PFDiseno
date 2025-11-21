@@ -9,7 +9,7 @@ import { Badge } from "./ui/badge";
 import { useState, useRef, useEffect } from "react";
 import { Product } from "./ProductCard";
 import { useThemeColor, getGradientClasses, getShadowClasses } from "../hooks/useThemeColor";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface PublishProductProps {
   isOpen: boolean;
@@ -44,9 +44,9 @@ const CITIES = [
 
 const CONDITIONS = ["Nuevo", "Como Nuevo", "Bueno", "Usado"] as const;
 const STATUSES = [
-  { value: "draft", label: "Borrador" },
-  { value: "published", label: "Publicada" },
-  { value: "paused", label: "Pausada" },
+  { value: "Borrador", label: "Borrador" },
+  { value: "Publicada", label: "Publicada" },
+  { value: "Pausada", label: "Pausada" },
 ] as const;
 
 export function PublishProduct({
@@ -61,7 +61,7 @@ export function PublishProduct({
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
   const [condition, setCondition] = useState<typeof CONDITIONS[number]>("Bueno");
-  const [status, setStatus] = useState<"draft" | "published" | "paused">("published");
+  const [status, setStatus] = useState<"Borrador" | "Publicada" | "Pausada">("Publicada");
   const [available, setAvailable] = useState(true);
   const [interestedInInput, setInterestedInInput] = useState("");
   const [interestedIn, setInterestedIn] = useState<string[]>([]);
@@ -93,7 +93,7 @@ export function PublishProduct({
       setCategory("");
       setLocation("");
       setCondition("Bueno");
-      setStatus("published");
+      setStatus("Publicada");
       setAvailable(true);
       setInterestedIn([]);
       setImages([]);
@@ -337,7 +337,7 @@ export function PublishProduct({
               <Label htmlFor="status">Estado de Publicación *</Label>
               <Select
                 value={status}
-                onValueChange={(value) => setStatus(value as "draft" | "published" | "paused")}
+                onValueChange={(value) => setStatus(value as "Borrador" | "Publicada" | "Pausada")}
                 required
               >
                 <SelectTrigger className="bg-input-background">

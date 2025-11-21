@@ -157,9 +157,9 @@ export function Dashboard({
     }
   };
 
-  const draftProducts = products.filter(p => p.status === "draft");
-  const publishedProducts = products.filter(p => p.status === "published");
-  const pausedProducts = products.filter(p => p.status === "paused");
+  const draftProducts = products.filter(p => p.status === "Borrador");
+  const publishedProducts = products.filter(p => p.status === "Publicada");
+  const pausedProducts = products.filter(p => p.status === "Pausada");
   const receivedTrades = trades.filter(t => t.id_usuario1 === user.id && t.id_usuario2 !== user.id);
   const sentTrades = trades.filter(t => t.id_usuario2 === user.id && t.id_usuario1 !== user.id);
   const pendingTrades = trades.filter(t => 
@@ -195,6 +195,7 @@ export function Dashboard({
           comentarioNLP: product.description,
           ubicacion: product.location.replace(", Colombia", ""),
           imagenes: imageFiles,
+          estado: product.status === "Publicada" ? "publicado" : product.status === "Pausada" ? "pausado" : "borrador",
         });
         toast.success("Producto creado exitosamente");
       }
@@ -400,7 +401,7 @@ export function Dashboard({
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
-                            {product.status === "draft" && (
+                            {product.status === "Borrador" && (
                               <Button
                                 size="sm"
                                 onClick={() => handleChangeStatus(product, "publicado")}
@@ -409,7 +410,7 @@ export function Dashboard({
                                 Publicar
                               </Button>
                             )}
-                            {product.status === "published" && (
+                            {product.status === "Publicada" && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -419,7 +420,7 @@ export function Dashboard({
                                 Pausar
                               </Button>
                             )}
-                            {product.status === "paused" && (
+                            {product.status === "Pausada" && (
                               <Button
                                 size="sm"
                                 onClick={() => handleChangeStatus(product, "publicado")}
@@ -797,7 +798,7 @@ function TradeCard({
     ownerUserId: myProductData.oferenteID || "",
     condition: "Bueno",
     interestedIn: [],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: "",
   };
@@ -814,7 +815,7 @@ function TradeCard({
     ownerUserId: otherProductData.oferenteID || "",
     condition: "Bueno",
     interestedIn: [],
-    status: "published",
+    status: "Publicada",
     available: true,
     createdAt: "",
   };

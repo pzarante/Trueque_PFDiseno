@@ -8,7 +8,7 @@ import { ProductCard, Product } from "./ProductCard";
 import { Separator } from "./ui/separator";
 import { EditProfile, ProfileData } from "./EditProfile";
 import { useState } from "react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,9 +68,9 @@ export function Profile({
   
   // Obtener productos del usuario
   const userProducts = allProducts.filter(p => p.ownerUserId === user.id);
-  const publishedUserProducts = userProducts.filter(p => p.status === "published");
-  const draftProducts = userProducts.filter(p => p.status === "draft");
-  const pausedProducts = userProducts.filter(p => p.status === "paused");
+  const publishedUserProducts = userProducts.filter(p => p.status === "Publicada");
+  const draftProducts = userProducts.filter(p => p.status === "Borrador");
+  const pausedProducts = userProducts.filter(p => p.status === "Pausada");
   
   // Obtener productos favoritos
   const favoritedProducts = allProducts.filter(p => user.favorites.includes(p.id));

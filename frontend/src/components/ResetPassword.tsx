@@ -3,43 +3,60 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { ArrowRightLeft } from "lucide-react";
+import { ArrowRightLeft, Lock, CheckCircle } from "lucide-react";
 import { ThemeColor } from "./ThemeColorPicker";
 import { useThemeColor, getGradientClasses, getShadowClasses, getTextClasses } from "../hooks/useThemeColor";
 import { PasswordInput } from "./PasswordInput";
 
-interface RegisterProps {
-  onRegister: (name: string, email: string, password: string, city: string) => void;
-  onNavigate: (page: string) => void;
+interface ResetPasswordProps {
+  token: string;
+  onReset: (newPassword: string) => Promise<void>;
+  onBack: () => void;
 }
 
-export function Register({ onRegister, onNavigate }: RegisterProps) {
+export function ResetPassword({ token, onReset, onBack }: ResetPasswordProps) {
   const { themeColor } = useThemeColor();
   const gradientClasses = getGradientClasses(themeColor);
   const shadowClasses = getShadowClasses(themeColor);
   const textClasses = getTextClasses(themeColor);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [city, setCity] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const [isPasswordValid, setIsPasswordValid] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isPasswordValid) {
+    
+    if (newPassword !== confirmPassword) {
+      setError("Las contraseñas no coinciden");
       return;
     }
-    onRegister(name, email, password, city);
+
+    if (!isPasswordValid) {
+      setError("La contraseña no cumple con los requisitos");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    try {
+      await onReset(newPassword);
+    } catch (err: any) {
+      setError(err.message || "Error al restablecer la contraseña");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Definir colores de las animaciones según el tema
   const getAnimationGradient = () => {
     const gradients: Record<ThemeColor, { primary: string; secondary: string }> = {
-      blue: { primary: "from-blue-400 to-cyan-400", secondary: "from-cyan-500 to-blue-600" },
-      purple: { primary: "from-purple-400 to-pink-400", secondary: "from-pink-500 to-purple-600" },
-      red: { primary: "from-red-400 to-rose-400", secondary: "from-rose-500 to-red-600" },
-      orange: { primary: "from-orange-400 to-amber-400", secondary: "from-amber-500 to-orange-600" },
-      green: { primary: "from-green-400 to-emerald-400", secondary: "from-emerald-500 to-green-600" },
+      blue: { primary: "from-blue-400 to-cyan-400", secondary: "from-blue-500 to-blue-600" },
+      purple: { primary: "from-purple-400 to-pink-400", secondary: "from-purple-500 to-purple-600" },
+      red: { primary: "from-red-400 to-rose-400", secondary: "from-red-500 to-red-600" },
+      orange: { primary: "from-orange-400 to-amber-400", secondary: "from-orange-500 to-orange-600" },
+      green: { primary: "from-green-400 to-emerald-400", secondary: "from-green-500 to-green-600" },
     };
     return gradients[themeColor];
   };
@@ -90,87 +107,82 @@ export function Register({ onRegister, onNavigate }: RegisterProps) {
               transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
               className={`bg-gradient-to-br ${gradientClasses} p-3 rounded-xl mb-4 shadow-lg ${shadowClasses}`}
             >
-              <ArrowRightLeft className="w-8 h-8 text-white" />
+              <Lock className="w-8 h-8 text-white" />
             </motion.div>
-            <h2 className="text-2xl">Crear Cuenta</h2>
-            <p className="text-muted-foreground mt-2">
-              Únete a la comunidad de Swaply
+            <h2 className="text-2xl">Restablecer Contraseña</h2>
+            <p className="text-muted-foreground mt-2 text-center">
+              Ingresa tu nueva contraseña
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre Completo</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Juan Pérez"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="bg-input-background"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Correo Electrónico</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="tu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="bg-input-background"
-              />
-            </div>
-
             <PasswordInput
-              id="password"
-              label="Contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              id="newPassword"
+              label="Nueva Contraseña"
+              value={newPassword}
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                setError("");
+              }}
               required
               showValidation={true}
               onValidationChange={setIsPasswordValid}
             />
 
             <div className="space-y-2">
-              <Label htmlFor="city">Ciudad</Label>
+              <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
               <Input
-                id="city"
-                type="text"
-                placeholder="Ej: Bogotá, Medellín, Cali..."
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setError("");
+                }}
                 required
                 className="bg-input-background"
               />
+              {confirmPassword && newPassword !== confirmPassword && (
+                <p className="text-sm text-red-500 dark:text-red-400">
+                  Las contraseñas no coinciden
+                </p>
+              )}
             </div>
+
+            {error && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+              </div>
+            )}
 
             <Button
               type="submit"
-              disabled={!isPasswordValid}
+              disabled={isLoading || !isPasswordValid || newPassword !== confirmPassword}
               className={`w-full bg-gradient-to-r ${gradientClasses} shadow-lg ${shadowClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              Crear Cuenta
+              {isLoading ? (
+                "Restableciendo..."
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Restablecer Contraseña
+                </>
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onBack}
+              className="w-full"
+            >
+              Cancelar
             </Button>
           </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              ¿Ya tienes cuenta?{" "}
-              <button
-                onClick={() => onNavigate("login")}
-                className={`${textClasses} font-medium hover:opacity-80 transition-opacity`}
-              >
-                Inicia sesión aquí
-              </button>
-            </p>
-          </div>
         </div>
       </motion.div>
     </div>
   );
 }
+
