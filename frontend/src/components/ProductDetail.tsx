@@ -221,9 +221,9 @@ export function ProductDetail({
                   >
                     {product.available ? "Disponible" : "No Disponible"}
                   </Badge>
-                  {product.status !== "published" && (
+                  {product.status !== "Publicada" && (
                     <Badge variant="secondary">
-                      {product.status === "draft" ? "Borrador" : "Pausada"}
+                      {product.status === "Borrador" ? "Borrador" : "Pausada"}
                     </Badge>
                   )}
                 </div>
